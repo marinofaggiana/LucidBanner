@@ -34,3 +34,38 @@ The system supports multiple policies (`enqueue`, `replace`, `drop`), touch bloc
 ## Installation
 
 Add **LucidBanner** via **Swift Package Manager**:
+
+In Xcode:  
+**File → Add Packages →** https://github.com/marinofaggiana/LucidBanner.git
+
+---
+
+
+## 💡 Quick Start
+
+```swift
+import LucidBanner
+
+// 1. Show a banner
+let token = LucidBanner.shared.show(
+    title: "Preparing file upload",
+    subtitle: "Large files require the app to remain open",
+    systemImage: "gearshape.arrow.triangle.2.circlepath",
+    imageColor: .systemBlue,
+    imageAnimation: .rotate,
+    progressColor: .systemBlue,
+    vPosition: .bottom,
+    hAlignment: .center
+    ) { state in
+        ToastBannerView(state: state)
+    }
+
+// 2. Update its progress
+LucidBanner.shared.update(
+    progress: 0.65,
+    stage: "uploading",
+    for: token
+)
+
+// 3. Dismiss when done
+LucidBanner.shared.dismiss(for: token)
