@@ -1,0 +1,15 @@
+# SwiftPM / Xcode
+.build/
+.DerivedData/
+.swiftpm/
+Packages/
+xcuserdata/
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
