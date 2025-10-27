@@ -48,4 +48,4 @@ LucidBanner.shared.dismiss(for: token)
 
 ---
 
-© 2025 Marino Faggiana — Licensed under GPL-3.0-or-later
+© 2025 Marino Faggiana — Licensed under MIT License
