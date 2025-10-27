@@ -65,7 +65,7 @@ import UIKit
 /// LucidBannerState holds all observable data shared with the SwiftUI view.
 /// It is updated whenever the banner’s appearance or content changes.
 @MainActor
-internal final class LucidBannerState: ObservableObject {
+public final class LucidBannerState: ObservableObject {
     @Published var title: String
     @Published var subtitle: String?
     @Published var footnote: String?
