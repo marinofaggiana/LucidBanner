@@ -1,6 +1,6 @@
 # LucidBanner
 
-> Elegant, fully async SwiftUI banner system for iOS — lightweight, customizable, and concurrency-safe.
+Elegant, fully async SwiftUI banner system for iOS — lightweight, customizable, and concurrency-safe.
 
 ![Swift](https://img.shields.io/badge/Swift-6.0-orange.svg)
 ![Platform](https://img.shields.io/badge/platform-iOS_14+-lightgrey.svg)
