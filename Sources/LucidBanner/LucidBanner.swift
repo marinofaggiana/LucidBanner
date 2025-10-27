@@ -81,9 +81,6 @@ public final class LucidBannerState: ObservableObject {
     @Published public private(set) var stage: String?
     @Published public private(set) var flags: [String: Any] = [:]
 
-    /// Internal flags (e.g. “measuring” during layout updates).
-    @Published var flags: [String: Any] = [:]
-
     public init(title: String,
                 subtitle: String? = nil,
                 footnote: String? = nil,
@@ -142,7 +139,7 @@ final public class LucidBanner {
     static let shared = LucidBanner()
 
     /// Determines what happens if a banner is already showing.
-    enum ShowPolicy {
+    public enum ShowPolicy {
         /// Replaces the current banner immediately.
         case replace
         /// Queues the new banner to be shown after the current one.
@@ -152,15 +149,15 @@ final public class LucidBanner {
     }
 
     /// Supported image animation styles.
-    enum LucidBannerAnimationStyle {
+    public enum LucidBannerAnimationStyle {
         case none, rotate, pulse, pulsebyLayer, breathe, bounce, wiggle, scale
     }
 
-    enum VerticalPosition {
+    public enum VerticalPosition {
         case top, center, bottom
     }
 
-    enum HorizontalAlignment {
+    public enum HorizontalAlignment {
         case left, center, right
     }
 
