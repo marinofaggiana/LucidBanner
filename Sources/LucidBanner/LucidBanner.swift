@@ -66,19 +66,20 @@ import UIKit
 /// It is updated whenever the banner’s appearance or content changes.
 @MainActor
 public final class LucidBannerState: ObservableObject {
-    @Published var title: String
-    @Published var subtitle: String?
-    @Published var footnote: String?
-    @Published var textColor: UIColor
+    @Published public private(set) var title: String
+    @Published public private(set) var subtitle: String?
+    @Published public private(set) var footnote: String?
+    @Published public private(set) var textColor: UIColor
 
-    @Published var systemImage: String?
-    @Published var imageColor: UIColor
-    @Published var imageAnimation: LucidBanner.LucidBannerAnimationStyle
+    @Published public private(set) var systemImage: String?
+    @Published public private(set) var imageColor: UIColor
+    @Published public private(set) var imageAnimation: LucidBanner.LucidBannerAnimationStyle
 
-    @Published var progress: Double?
-    @Published var progressColor: UIColor
+    @Published public private(set) var progress: Double?
+    @Published public private(set) var progressColor: UIColor
 
-    @Published var stage: String?
+    @Published public private(set) var stage: String?
+    @Published public private(set) var flags: [String: Any] = [:]
 
     /// Internal flags (e.g. “measuring” during layout updates).
     @Published var flags: [String: Any] = [:]
