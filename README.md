@@ -10,77 +10,42 @@
 
 ## 🧭 Overview
 
-**LucidBanner** is a Swift package that provides smooth, customizable in-app banners for iOS.  
-It combines the flexibility of **SwiftUI** with the precision of **UIKit**, rendering each banner in its own transparent `UIWindow` — above the status bar, independent from your app hierarchy.
-
-LucidBanner is fully **async/await safe** and runs entirely on the **main actor**, ensuring UI consistency even under concurrency.  
-It supports queued banners, top/bottom/center placement, swipe gestures, progress bars, touch blocking, and tap callbacks with contextual information.
+LucidBanner provides smooth, customizable in-app banners for iOS, combining the flexibility of **SwiftUI** with **UIKit** precision.  
+It renders each banner in its own transparent `UIWindow` above the status bar — independent from your main view hierarchy.
 
 ---
 
 ## ✨ Features
 
-- 🪶 Pure **SwiftUI + UIKit** integration
-- 🧭 **Top**, **Center**, or **Bottom** vertical positioning
-- ↔️ **Left**, **Center**, or **Right** horizontal alignment
-- 🎞️ Built-in icon animations (`rotate`, `pulse`, `breathe`, `bounce`, …)
-- ⏳ Progress bar with live updates
-- 🧩 Custom SwiftUI views with dynamic resizing
-- 🧠 Fully `@MainActor` and concurrency-safe
-- 🪟 Renders inside its own UIWindow (independent from your app UI)
-- 🧍 Accessibility and Dynamic Type compliant
+- Top / Center / Bottom positioning
+- Left / Center / Right alignment
+- Built-in animations (`rotate`, `pulse`, `breathe`, `bounce`, …)
+- Live-updating progress bar
+- Fully `@MainActor` and async-safe
+- Tap, swipe, and automatic dismiss support
 
 ---
 
-## 🚀 Installation
-
-### Swift Package Manager (Xcode)
-1. Open **File → Add Packages…**
-2. Enter the URL:
-   ```
-   https://github.com/marinofaggiana/LucidBanner.git
-   ```
-3. Choose your target and click **Add Package**
-
----
-
-## 💡 Quick Start
+## 🚀 Example
 
 ```swift
 import LucidBanner
 
-// 1. Show a banner
 let token = LucidBanner.shared.show(
-    title: "Preparing file upload",
-    subtitle: "Large files require the app to remain open",
+    title: "Preparing upload",
+    subtitle: "Large files require the app to stay open",
     systemImage: "gearshape.arrow.triangle.2.circlepath",
     imageColor: .systemBlue,
     imageAnimation: .rotate,
-    progressColor: .systemBlue,
-    vPosition: .bottom,
-    hAlignment: .center
+    vPosition: .bottom
 ) { state in
     ToastBannerView(state: state)
 }
 
-// 2. Update its progress
-LucidBanner.shared.update(
-    progress: 0.65,
-    stage: "uploading",
-    for: token
-)
-
-// 3. Dismiss when done
+LucidBanner.shared.update(progress: 0.5, stage: "uploading", for: token)
 LucidBanner.shared.dismiss(for: token)
 ```
 
 ---
 
-## ⚙️ License
-
-This project is licensed under the **MIT License**.  
-See the [LICENSE](LICENSE) file for details.
-
-© 2025 **Marino Faggiana**
-
----
+© 2025 Marino Faggiana — Licensed under GPL-3.0-or-later
