@@ -252,30 +252,30 @@ final public class LucidBanner {
     ///
     /// - Returns: A unique token identifying this banner instance.
     @discardableResult
-    func show<Content: View>(scene: UIScene? = nil,
-                             title: String,
-                             subtitle: String? = nil,
-                             footnote: String? = nil,
-                             textColor: UIColor = .label,
-                             systemImage: String? = nil,
-                             imageColor: UIColor = .label,
-                             imageAnimation: LucidBannerAnimationStyle = .none,
-                             progress: Double? = nil,
-                             progressColor: UIColor = .label,
-                             fixedWidth: CGFloat? = nil,
-                             minWidth: CGFloat = 220,
-                             maxWidth: CGFloat = 420,
-                             vPosition: VerticalPosition = .top,
-                             hAlignment: HorizontalAlignment = .center,
-                             horizontalMargin: CGFloat = 12,
-                             verticalMargin: CGFloat = 10,
-                             autoDismissAfter: TimeInterval = 0,
-                             swipeToDismiss: Bool = true,
-                             blocksTouches: Bool = false,
-                             stage: String? = nil,
-                             policy: ShowPolicy = .enqueue,
-                             onTapWithContext: ((_ token: Int, _ revision: Int, _ stage: String?) -> Void)? = nil,
-                             @ViewBuilder content: @escaping (LucidBannerState) -> Content) -> Int {
+    public func show<Content: View>(scene: UIScene? = nil,
+                                    title: String,
+                                    subtitle: String? = nil,
+                                    footnote: String? = nil,
+                                    textColor: UIColor = .label,
+                                    systemImage: String? = nil,
+                                    imageColor: UIColor = .label,
+                                    imageAnimation: LucidBannerAnimationStyle = .none,
+                                    progress: Double? = nil,
+                                    progressColor: UIColor = .label,
+                                    fixedWidth: CGFloat? = nil,
+                                    minWidth: CGFloat = 220,
+                                    maxWidth: CGFloat = 420,
+                                    vPosition: VerticalPosition = .top,
+                                    hAlignment: HorizontalAlignment = .center,
+                                    horizontalMargin: CGFloat = 12,
+                                    verticalMargin: CGFloat = 10,
+                                    autoDismissAfter: TimeInterval = 0,
+                                    swipeToDismiss: Bool = true,
+                                    blocksTouches: Bool = false,
+                                    stage: String? = nil,
+                                    policy: ShowPolicy = .enqueue,
+                                    onTapWithContext: ((_ token: Int, _ revision: Int, _ stage: String?) -> Void)? = nil,
+                                    @ViewBuilder content: @escaping (LucidBannerState) -> Content) -> Int {
         self.scene = scene
 
         // Title
@@ -433,18 +433,18 @@ final public class LucidBanner {
     ///   - stage: Optional new logical stage.
     ///   - onTapWithContext: Updated tap handler.
     ///   - token: Token of the banner to update.
-    func update(title: String? = nil,
-                subtitle: String? = nil,
-                footnote: String? = nil,
-                textColor: UIColor? = nil,
-                systemImage: String? = nil,
-                imageColor: UIColor? = nil,
-                imageAnimation: LucidBannerAnimationStyle? = nil,
-                progress: Double? = nil,
-                progressColor: UIColor? = nil,
-                stage: String? = nil,
-                onTapWithContext: ((_ token: Int, _ revision: Int, _ stage: String?) -> Void)? = nil,
-                for token: Int? = nil) {
+    public func update(title: String? = nil,
+                       subtitle: String? = nil,
+                       footnote: String? = nil,
+                       textColor: UIColor? = nil,
+                       systemImage: String? = nil,
+                       imageColor: UIColor? = nil,
+                       imageAnimation: LucidBannerAnimationStyle? = nil,
+                       progress: Double? = nil,
+                       progressColor: UIColor? = nil,
+                       stage: String? = nil,
+                       onTapWithContext: ((_ token: Int, _ revision: Int, _ stage: String?) -> Void)? = nil,
+                       for token: Int? = nil) {
         if (token != nil && token != activeToken) || window == nil {
             return
         }
@@ -520,7 +520,7 @@ final public class LucidBanner {
     /// Dismisses the current banner, optionally calling a completion handler.
     ///
     /// - Parameter completion: Executed after the animation completes.
-    func dismiss(completion: (() -> Void)? = nil) {
+    public func dismiss(completion: (() -> Void)? = nil) {
         dismissTimer?.cancel()
         dismissTimer = nil
 
@@ -572,7 +572,7 @@ final public class LucidBanner {
     /// - Parameters:
     ///   - token: The token returned from `show`.
     ///   - completion: Executed after the animation completes.
-    func dismiss(for token: Int, completion: (() -> Void)? = nil) {
+    public func dismiss(for token: Int, completion: (() -> Void)? = nil) {
         guard token == activeToken else {
             return
         }
