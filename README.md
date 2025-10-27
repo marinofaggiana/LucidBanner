@@ -8,38 +8,41 @@
 
 ---
 
-## Overview
+## 🧭 Overview
 
-**LucidBanner** is a lightweight Swift package that provides beautiful, animated banners for iOS apps.  
-It uses SwiftUI for rendering and UIKit for window management — giving you pixel-perfect banners that live *above* the status bar, automatically resize with content, and adapt to multitasking and orientation changes.
+**LucidBanner** is a Swift package that provides smooth, customizable in-app banners for iOS.  
+It combines the flexibility of **SwiftUI** with the precision of **UIKit**, rendering each banner in its own transparent `UIWindow` — above the status bar, independent from your app hierarchy.
 
-The system supports multiple policies (`enqueue`, `replace`, `drop`), touch blocking, swipe-to-dismiss gestures, and contextual updates with async operations.
-
----
-
-## Features
-
-- 🪶 **Pure SwiftUI + UIKit integration**
-- 🧭 **Top, center, or bottom positioning**
-- ↔️ **Left / Center / Right horizontal alignment**
-- 🎞️ **Animated icons (`rotate`, `pulse`, `breathe`, …)**
-- ⏳ **Built-in progress bar**
-- 🧩 **Custom SwiftUI content**
-- 🧠 **Concurrency-safe (`@MainActor`)**
-- 🪟 **Independent UIWindow per banner**
-- 🧍‍♂️ **Accessibility & Dynamic Type ready**
+LucidBanner is fully **async/await safe** and runs entirely on the **main actor**, ensuring UI consistency even under concurrency.  
+It supports queued banners, top/bottom/center placement, swipe gestures, progress bars, touch blocking, and tap callbacks with contextual information.
 
 ---
 
-## Installation
+## ✨ Features
 
-Add **LucidBanner** via **Swift Package Manager**:
-
-In Xcode:  
-**File → Add Packages →** https://github.com/marinofaggiana/LucidBanner.git
+- 🪶 Pure **SwiftUI + UIKit** integration
+- 🧭 **Top**, **Center**, or **Bottom** vertical positioning
+- ↔️ **Left**, **Center**, or **Right** horizontal alignment
+- 🎞️ Built-in icon animations (`rotate`, `pulse`, `breathe`, `bounce`, …)
+- ⏳ Progress bar with live updates
+- 🧩 Custom SwiftUI views with dynamic resizing
+- 🧠 Fully `@MainActor` and concurrency-safe
+- 🪟 Renders inside its own UIWindow (independent from your app UI)
+- 🧍 Accessibility and Dynamic Type compliant
 
 ---
 
+## 🚀 Installation
+
+### Swift Package Manager (Xcode)
+1. Open **File → Add Packages…**
+2. Enter the URL:
+   ```
+   https://github.com/marinofaggiana/LucidBanner.git
+   ```
+3. Choose your target and click **Add Package**
+
+---
 
 ## 💡 Quick Start
 
@@ -56,9 +59,9 @@ let token = LucidBanner.shared.show(
     progressColor: .systemBlue,
     vPosition: .bottom,
     hAlignment: .center
-    ) { state in
-        ToastBannerView(state: state)
-    }
+) { state in
+    ToastBannerView(state: state)
+}
 
 // 2. Update its progress
 LucidBanner.shared.update(
@@ -69,3 +72,15 @@ LucidBanner.shared.update(
 
 // 3. Dismiss when done
 LucidBanner.shared.dismiss(for: token)
+```
+
+---
+
+## ⚙️ License
+
+This project is licensed under the **MIT License**.  
+See the [LICENSE](LICENSE) file for details.
+
+© 2025 **Marino Faggiana**
+
+---
