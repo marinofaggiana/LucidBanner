@@ -136,7 +136,7 @@ internal final class LucidBannerWindow: UIWindow {
 @MainActor
 final public class LucidBanner {
     /// Shared instance used to show and update banners.
-    static let shared = LucidBanner()
+    public static let shared = LucidBanner()
 
     /// Determines what happens if a banner is already showing.
     public enum ShowPolicy {
