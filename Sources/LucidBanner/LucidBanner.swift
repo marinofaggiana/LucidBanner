@@ -84,16 +84,16 @@ public final class LucidBannerState: ObservableObject {
     /// Internal flags (e.g. “measuring” during layout updates).
     @Published var flags: [String: Any] = [:]
 
-    init(title: String,
-         subtitle: String? = nil,
-         footnote: String? = nil,
-         textColor: UIColor,
-         systemImage: String? = nil,
-         imageColor: UIColor,
-         imageAnimation: LucidBanner.LucidBannerAnimationStyle,
-         progress: Double? = nil,
-         progressColor: UIColor,
-         stage: String? = nil) {
+    public init(title: String,
+                subtitle: String? = nil,
+                footnote: String? = nil,
+                textColor: UIColor,
+                systemImage: String? = nil,
+                imageColor: UIColor,
+                imageAnimation: LucidBanner.LucidBannerAnimationStyle,
+                progress: Double? = nil,
+                progressColor: UIColor,
+                stage: String? = nil) {
         self.title = title
         self.subtitle = (subtitle?.isEmpty == true) ? nil : subtitle
         self.footnote = (footnote?.isEmpty == true) ? nil : footnote
@@ -137,7 +137,7 @@ internal final class LucidBannerWindow: UIWindow {
 /// LucidBanner is a singleton manager for showing animated, SwiftUI-based banners.
 /// Each banner is rendered in a transparent UIWindow above the status bar.
 @MainActor
-final class LucidBanner {
+final public class LucidBanner {
     /// Shared instance used to show and update banners.
     static let shared = LucidBanner()
 
