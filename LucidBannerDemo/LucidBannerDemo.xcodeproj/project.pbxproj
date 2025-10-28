@@ -16,7 +16,7 @@
 			path = LucidBannerDemo;
 			sourceTree = "<group>";
 		};
-		F70787852EB09DAB00CE1625 /* Sources */ = {
+		F733C0232EB11F1E00ACBC06 /* Sources */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Sources;
 			sourceTree = "<group>";
@@ -37,7 +37,7 @@
 		F70787682EB09D3C00CE1625 = {
 			isa = PBXGroup;
 			children = (
-				F70787852EB09DAB00CE1625 /* Sources */,
+				F733C0232EB11F1E00ACBC06 /* Sources */,
 				F70787732EB09D3C00CE1625 /* LucidBannerDemo */,
 				F70787722EB09D3C00CE1625 /* Products */,
 			);
@@ -68,7 +68,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				F70787732EB09D3C00CE1625 /* LucidBannerDemo */,
-				F70787852EB09DAB00CE1625 /* Sources */,
+				F733C0232EB11F1E00ACBC06 /* Sources */,
 			);
 			name = LucidBannerDemo;
 			packageProductDependencies = (
