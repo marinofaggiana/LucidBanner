@@ -847,6 +847,7 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
 
         let tap = UITapGestureRecognizer(target: self, action: #selector(handleBannerTap))
+        tap.delegate = self
         tap.cancelsTouchesInView = false
         if let panGesture { tap.require(toFail: panGesture) }
         host.view.addGestureRecognizer(tap)
@@ -981,6 +982,26 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     }
 
     // MARK: - UIGestureRecognizerDelegate
+
+    public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        return false
+    }
+
+    public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        guard let hostView = hostController?.view else { return true }
+        let p = touch.location(in: hostView)
+        let inside = hostView.bounds.contains(p)
+
+        if !blocksTouches && !inside {
+            return false
+        }
+
+        if blocksTouches {
+            if gestureRecognizer is UITapGestureRecognizer { return inside }
+            if gestureRecognizer is UIPanGestureRecognizer { return inside }
+        }
+        return true
+    }
 
     public func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         // Debounce: do not begin pan too soon after presentation
