@@ -11,7 +11,7 @@ struct ContentView: View {
     var body: some View {
         VStack(spacing: 16) {
             Button("Show Top Banner") {
-                let token = LucidBanner.shared.show(
+                LucidBanner.shared.show(
                     title: "Upload started",
                     subtitle: "Keep the app in foreground",
                     systemImage: "arrowshape.up.circle",
@@ -21,11 +21,10 @@ struct ContentView: View {
                 ) { state in
                     ToastBannerView(state: state)
                 }
-                _ = token
             }
 
             Button("Show Bottom Banner") {
-                _ = LucidBanner.shared.show(
+                LucidBanner.shared.show(
                     title: "All done",
                     systemImage: "checkmark.circle",
                     vPosition: .bottom,

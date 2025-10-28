@@ -1,6 +1,9 @@
-// SPDX-FileCopyrightText: Nextcloud GmbH
-// SPDX-FileCopyrightText: 2025 Marino Faggiana
-// SPDX-License-Identifier: GPL-3.0-or-later
+//
+//  LucidBanner.swift
+//  LucidBannerDemo
+//
+//  Created by Marino Faggiana on 28/10/25.
+//
 
 import SwiftUI
 import UIKit
