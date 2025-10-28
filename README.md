@@ -1,12 +1,12 @@
 # LucidBanner
 
-SwiftUI-based transient banners rendered in their own window above the status bar.
-Designed and used in the **Nextcloud iOS** app. Author: **Marino Faggiana**.  
-License: **MIT license**. Version: **0.0.1**
-
 ![Swift](https://img.shields.io/badge/Swift-6.0-orange.svg)
 ![Platform](https://img.shields.io/badge/platform-iOS_17+-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
+
+SwiftUI-based transient banners rendered in their own window above the status bar.
+Designed and used in the **Nextcloud iOS** app. Author: **Marino Faggiana**.  
+License: **MIT license**. Version: **0.0.1**
 
 ## Features
 - One-at-a-time display with queueing (`.enqueue`), replacement (`.replace`) or dropping (`.drop`)
