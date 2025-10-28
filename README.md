@@ -2,7 +2,7 @@
 
 SwiftUI-based transient banners rendered in their own window above the status bar.
 Designed and used in the **Nextcloud iOS** app. Author: **Marino Faggiana**.  
-License: **GPL-3.0-or-later**. Version: **0.0.1**
+License: **MIT license**. Version: **0.0.1**
 
 ## Features
 - One-at-a-time display with queueing (`.enqueue`), replacement (`.replace`) or dropping (`.drop`)
@@ -106,4 +106,4 @@ public func show<Content: View>(
 - Built for: **Nextcloud iOS**
 
 ## License
-GPL-3.0-or-later (see `LICENSE`).
+MIT license (see `LICENSE`).
