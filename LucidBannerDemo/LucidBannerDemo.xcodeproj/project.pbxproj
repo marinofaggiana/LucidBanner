@@ -6,8 +6,13 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		F79CB8E82EB0BE1600943EE2 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = F79CB8E72EB0BE1600943EE2 /* README.md */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		F70787712EB09D3C00CE1625 /* LucidBannerDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LucidBannerDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F79CB8E72EB0BE1600943EE2 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -37,6 +42,7 @@
 		F70787682EB09D3C00CE1625 = {
 			isa = PBXGroup;
 			children = (
+				F79CB8E72EB0BE1600943EE2 /* README.md */,
 				F70787852EB09DAB00CE1625 /* Sources */,
 				F70787732EB09D3C00CE1625 /* LucidBannerDemo */,
 				F70787722EB09D3C00CE1625 /* Products */,
@@ -116,6 +122,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F79CB8E82EB0BE1600943EE2 /* README.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
