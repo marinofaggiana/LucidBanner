@@ -1,8 +1,8 @@
-# LucidBanner
-
 ![Swift](https://img.shields.io/badge/Swift-6.0-orange.svg)
 ![Platform](https://img.shields.io/badge/platform-iOS_17+-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
+
+# LucidBanner
 
 SwiftUI-based transient banners rendered in their own window above the status bar.
 Designed and used in the **Nextcloud iOS** app. Author: **Marino Faggiana**.  
