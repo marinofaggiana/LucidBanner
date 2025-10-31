@@ -38,12 +38,9 @@ import Combine
 ///   - title: Main text of the banner. Empty/whitespace-only values are normalized to an empty string.
 ///   - subtitle: Optional secondary text below the title. Empty strings are treated as `nil`.
 ///   - footnote: Optional tertiary line below the subtitle. Empty strings are treated as `nil`.
-///   - textColor: Color used for textual elements.
 ///   - systemImage: Optional SF Symbol name to display beside the text.
-///   - imageColor: Tint for the SF Symbol.
 ///   - imageAnimation: Animation to apply to the icon (e.g., `.rotate`, `.breathe`).
 ///   - progress: Optional progress (0…1). Values `<= 0` hide the progress bar.
-///   - progressColor: Tint color for the progress bar.
 ///   - fixedWidth: If set, forces the banner width. Otherwise the banner fits content within bounds.
 ///   - minWidth: Minimum width when auto-sizing (ignored if `fixedWidth` is set).
 ///   - maxWidth: Maximum width when auto-sizing (ignored if `fixedWidth` is set).
@@ -73,14 +70,11 @@ public final class LucidBannerState: ObservableObject {
     @Published public var title: String
     @Published public var subtitle: String?
     @Published public var footnote: String?
-    @Published public var textColor: UIColor
 
     @Published public var systemImage: String?
-    @Published public var imageColor: UIColor
     @Published public var imageAnimation: LucidBanner.LucidBannerAnimationStyle
 
     @Published public var progress: Double?
-    @Published public var progressColor: UIColor
 
     @Published public var stage: String?
     @Published public var flags: [String: Any] = [:]
@@ -88,24 +82,18 @@ public final class LucidBannerState: ObservableObject {
     public init(title: String,
                 subtitle: String? = nil,
                 footnote: String? = nil,
-                textColor: UIColor,
                 systemImage: String? = nil,
-                imageColor: UIColor,
                 imageAnimation: LucidBanner.LucidBannerAnimationStyle,
                 progress: Double? = nil,
-                progressColor: UIColor,
                 stage: String? = nil) {
         self.title = title
         self.subtitle = (subtitle?.isEmpty == true) ? nil : subtitle
         self.footnote = (footnote?.isEmpty == true) ? nil : footnote
-        self.textColor = textColor
 
         self.systemImage = systemImage
-        self.imageColor = imageColor
         self.imageAnimation = imageAnimation
 
         self.progress = progress
-        self.progressColor = progressColor
 
         self.stage = stage
     }
@@ -171,12 +159,9 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         let title: String
         let subtitle: String?
         let footnote: String?
-        let textColor: UIColor
         let systemImage: String?
-        let imageColor: UIColor
         let imageAnimation: LucidBannerAnimationStyle
         let progress: Double?
-        let progressColor: UIColor
         let fixedWidth: CGFloat?
         let minWidth: CGFloat
         let maxWidth: CGFloat
@@ -239,12 +224,9 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     let state = LucidBannerState(title: "",
                                  subtitle: nil,
                                  footnote: nil,
-                                 textColor: .label,
                                  systemImage: nil,
-                                 imageColor: .label,
                                  imageAnimation: .none,
                                  progress: nil,
-                                 progressColor: .label,
                                  stage: nil)
 
     // Config
@@ -286,12 +268,9 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     ///   - title: Primary text. Whitespace-only is normalized to an empty string.
     ///   - subtitle: Secondary text below `title`. Empty strings are treated as `nil`.
     ///   - footnote: Tertiary line below `subtitle`. Empty strings are treated as `nil`.
-    ///   - textColor: Color for textual elements.
     ///   - systemImage: SF Symbol name to show beside the text.
-    ///   - imageColor: Tint color for the `systemImage`.
     ///   - imageAnimation: Icon animation style (e.g. `.rotate`, `.breathe`).
     ///   - progress: Optional value in `[0, 1]`. Values `<= 0` hide the progress view.
-    ///   - progressColor: Tint color for the progress view.
     ///   - fixedWidth: Forces a fixed banner width. If `nil`, width auto-fits content within bounds.
     ///   - minWidth: Minimum width when auto-sizing. Ignored if `fixedWidth` is set.
     ///   - maxWidth: Maximum width when auto-sizing. Ignored if `fixedWidth` is set.
@@ -313,12 +292,9 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                                     title: String,
                                     subtitle: String? = nil,
                                     footnote: String? = nil,
-                                    textColor: UIColor = .label,
                                     systemImage: String? = nil,
-                                    imageColor: UIColor = .label,
                                     imageAnimation: LucidBannerAnimationStyle = .none,
                                     progress: Double? = nil,
-                                    progressColor: UIColor = .label,
                                     fixedWidth: CGFloat? = nil,
                                     minWidth: CGFloat = 220,
                                     maxWidth: CGFloat = 420,
@@ -372,12 +348,9 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             title: normalizedTitle,
             subtitle: normalizedSubtitle,
             footnote: normalizedFootnote,
-            textColor: textColor,
             systemImage: systemImage,
-            imageColor: imageColor,
             imageAnimation: imageAnimation,
             progress: normalizedProgress,
-            progressColor: progressColor,
             fixedWidth: fixedWidth,
             minWidth: minWidth,
             maxWidth: maxWidth,
@@ -430,31 +403,25 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// `revision` counter so `onTapWithContext` can disambiguate which version of the banner was tapped.
     ///
     /// **Resizing behavior**
-    /// The banner's width is remeasured only when text or image changes; stage-only or color/progress-only
+    /// The banner's width is remeasured only when text or image changes; stage-only or rogress-only
     /// updates do not trigger a relayout.
     ///
     /// - Parameters:
     ///   - title: New title. Whitespace-only becomes an empty string (visible as no text if empty).
     ///   - subtitle: New subtitle. Empty strings are treated as `nil`.
     ///   - footnote: New footnote. Empty strings are treated as `nil`.
-    ///   - textColor: New color for textual elements.
     ///   - systemImage: New SF Symbol name.
-    ///   - imageColor: New symbol tint color.
     ///   - imageAnimation: New animation style for the symbol.
     ///   - progress: New progress in `[0, 1]`. Values `<= 0` hide the progress view.
-    ///   - progressColor: New progress bar tint color.
     ///   - stage: New logical phase label passed to the tap handler.
     ///   - onTapWithContext: Replaces the current tap callback `(token, revision, stage)`.
     ///   - token: If provided, the update is applied only if this matches the active banner's token; otherwise ignored.
     public func update(title: String? = nil,
                        subtitle: String? = nil,
                        footnote: String? = nil,
-                       textColor: UIColor? = nil,
                        systemImage: String? = nil,
-                       imageColor: UIColor? = nil,
                        imageAnimation: LucidBannerAnimationStyle? = nil,
                        progress: Double? = nil,
-                       progressColor: UIColor? = nil,
                        stage: String? = nil,
                        onTapWithContext: ((_ token: Int, _ revision: Int, _ stage: String?) -> Void)? = nil,
                        for token: Int? = nil) {
@@ -482,15 +449,8 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             let trimmed = footnote.trimmingCharacters(in: .whitespacesAndNewlines)
             state.footnote = trimmed.isEmpty ? nil : trimmed
         }
-        if let textColor {
-            state.textColor = textColor
-        }
-
         if let systemImage {
             state.systemImage = systemImage
-        }
-        if let imageColor {
-            state.imageColor = imageColor
         }
         if let imageAnimation {
             state.imageAnimation = imageAnimation
@@ -501,10 +461,6 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             let clamped = max(0, min(1, progress))
             state.progress = (clamped > 0) ? clamped : nil
         }
-        if let progressColor {
-            state.progressColor = progressColor
-        }
-
         if let stage {
             state.stage = stage
         }
@@ -706,16 +662,13 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         state.title = p.title
         state.subtitle = p.subtitle
         state.footnote = p.footnote
-        state.textColor = p.textColor
 
         // Image & animation
         state.systemImage = p.systemImage
-        state.imageColor = p.imageColor
         state.imageAnimation = p.imageAnimation
 
         // Progress & stage
         state.progress = p.progress
-        state.progressColor = p.progressColor
         state.stage = p.stage
 
         // Layout & behavior

@@ -22,24 +22,24 @@ struct ToastBannerView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(state.title)
                     .font(.headline)
-                    .foregroundColor(Color(state.textColor))
+                    .foregroundColor(Color(.green))
 
                 if let subtitle = state.subtitle {
                     Text(subtitle)
                         .font(.subheadline)
-                        .foregroundColor(Color(state.textColor).opacity(0.8))
+                        .foregroundColor(Color(.blue).opacity(0.8))
                 }
 
                 if let footnote = state.footnote {
                     Text(footnote)
                         .font(.footnote)
-                        .foregroundColor(Color(state.textColor).opacity(0.6))
+                        .foregroundColor(Color(.black).opacity(0.6))
                 }
 
                 if let progress = state.progress {
                     ProgressView(value: progress)
                         .progressViewStyle(.linear)
-                        .tint(Color(state.progressColor))
+                        .tint(Color(.brown))
                         .frame(height: 3)
                         .padding(.top, 4)
                 }
@@ -60,7 +60,7 @@ struct ToastBannerView: View {
         let base = Image(systemName: systemImage)
             .resizable()
             .scaledToFit()
-            .foregroundColor(Color(state.imageColor))
+            .foregroundColor(Color(.red))
 
         switch style {
         case .none:
@@ -92,12 +92,9 @@ struct ToastBannerView: View {
             title: "Upload complete",
             subtitle: "3 files synced successfully",
             footnote: "Nextcloud demo banner",
-            textColor: .white,
             systemImage: "checkmark.circle.fill",
-            imageColor: .green,
             imageAnimation: .pulse,
             progress: 1.0,
-            progressColor: .green,
             stage: "complete"
         )
     )
