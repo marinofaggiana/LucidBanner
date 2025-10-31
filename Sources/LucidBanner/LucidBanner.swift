@@ -73,14 +73,11 @@ public final class LucidBannerState: ObservableObject {
     @Published public var title: String
     @Published public var subtitle: String?
     @Published public var footnote: String?
-    @Published public var textColor: UIColor
 
     @Published public var systemImage: String?
-    @Published public var imageColor: UIColor
     @Published public var imageAnimation: LucidBanner.LucidBannerAnimationStyle
 
     @Published public var progress: Double?
-    @Published public var progressColor: UIColor
 
     @Published public var stage: String?
     @Published public var flags: [String: Any] = [:]
@@ -88,24 +85,18 @@ public final class LucidBannerState: ObservableObject {
     public init(title: String,
                 subtitle: String? = nil,
                 footnote: String? = nil,
-                textColor: UIColor,
                 systemImage: String? = nil,
-                imageColor: UIColor,
                 imageAnimation: LucidBanner.LucidBannerAnimationStyle,
                 progress: Double? = nil,
-                progressColor: UIColor,
                 stage: String? = nil) {
         self.title = title
         self.subtitle = (subtitle?.isEmpty == true) ? nil : subtitle
         self.footnote = (footnote?.isEmpty == true) ? nil : footnote
-        self.textColor = textColor
 
         self.systemImage = systemImage
-        self.imageColor = imageColor
         self.imageAnimation = imageAnimation
 
         self.progress = progress
-        self.progressColor = progressColor
 
         self.stage = stage
     }
@@ -239,12 +230,9 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     let state = LucidBannerState(title: "",
                                  subtitle: nil,
                                  footnote: nil,
-                                 textColor: .label,
                                  systemImage: nil,
-                                 imageColor: .label,
                                  imageAnimation: .none,
                                  progress: nil,
-                                 progressColor: .label,
                                  stage: nil)
 
     // Config
@@ -486,11 +474,6 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             state.footnote = f.isEmpty ? nil : f
         }
 
-        // Colori (se li usi)
-        if let textColor      { state.textColor = textColor }
-        if let imageColor     { state.imageColor = imageColor }
-        if let progressColor  { state.progressColor = progressColor }
-
         // Icona / animazione
         if let systemImage    { state.systemImage = systemImage }
         if let imageAnimation { state.imageAnimation = imageAnimation }
@@ -717,16 +700,13 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         state.title = p.title
         state.subtitle = p.subtitle
         state.footnote = p.footnote
-        state.textColor = p.textColor
 
         // Image & animation
         state.systemImage = p.systemImage
-        state.imageColor = p.imageColor
         state.imageAnimation = p.imageAnimation
 
         // Progress & stage
         state.progress = p.progress
-        state.progressColor = p.progressColor
         state.stage = p.stage
 
         // Layout & behavior
