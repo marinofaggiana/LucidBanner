@@ -28,8 +28,11 @@ struct ContentView: View {
                         systemImage: "checkmark.circle",
                         for: token
                     ) { state in
-                        MinimalBannerSuccessView(state: state)
+                        AnyView(MinimalBannerSuccessView(state: state))
                     }
+
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)
+                    LucidBanner.shared.dismiss(for: token)
                 }
             }
 
