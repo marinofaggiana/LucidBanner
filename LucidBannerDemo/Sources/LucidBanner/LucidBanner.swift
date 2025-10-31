@@ -394,28 +394,7 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         return newToken
     }
 
-    /// Updates the currently visible banner's content and presentation without dismissing it.
-    /// Only applies if the banner identified by `token` (or the active banner if `token` is `nil`)
-    /// is still visible. Text fields are normalized (empty strings become `nil` where applicable).
-    ///
-    /// **Revision semantics**
-    /// Any meaningful state change (title/subtitle/footnote, image, or stage) increments an internal
-    /// `revision` counter so `onTapWithContext` can disambiguate which version of the banner was tapped.
-    ///
-    /// **Resizing behavior**
-    /// The banner's width is remeasured only when text or image changes; stage-only or rogress-only
-    /// updates do not trigger a relayout.
-    ///
-    /// - Parameters:
-    ///   - title: New title. Whitespace-only becomes an empty string (visible as no text if empty).
-    ///   - subtitle: New subtitle. Empty strings are treated as `nil`.
-    ///   - footnote: New footnote. Empty strings are treated as `nil`.
-    ///   - systemImage: New SF Symbol name.
-    ///   - imageAnimation: New animation style for the symbol.
-    ///   - progress: New progress in `[0, 1]`. Values `<= 0` hide the progress view.
-    ///   - stage: New logical phase label passed to the tap handler.
-    ///   - onTapWithContext: Replaces the current tap callback `(token, revision, stage)`.
-    ///   - token: If provided, the update is applied only if this matches the active banner's token; otherwise ignored.
+    @MainActor
     public func update(title: String? = nil,
                        subtitle: String? = nil,
                        footnote: String? = nil,
@@ -424,7 +403,9 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                        progress: Double? = nil,
                        stage: String? = nil,
                        onTapWithContext: ((_ token: Int, _ revision: Int, _ stage: String?) -> Void)? = nil,
-                       for token: Int? = nil) {
+                       for token: Int? = nil,
+                       content contentFactory: ((LucidBannerState) -> AnyView)? = nil) {
+        // Guard: must target the active banner and there must be a window up.
         if (token != nil && token != activeToken) || window == nil {
             return
         }
@@ -436,7 +417,7 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         let oldImage = state.systemImage
         let oldStage = state.stage
 
-        // Normalize title/subtitle/footnote
+        // Normalize textual fields (empty -> nil where appropriate)
         if let title {
             let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
             state.title = trimmed.isEmpty ? "" : trimmed
@@ -449,39 +430,44 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             let trimmed = footnote.trimmingCharacters(in: .whitespacesAndNewlines)
             state.footnote = trimmed.isEmpty ? nil : trimmed
         }
-        if let systemImage {
-            state.systemImage = systemImage
-        }
-        if let imageAnimation {
-            state.imageAnimation = imageAnimation
-        }
 
-        // Clamp progress to [0,1] and hide when <= 0
+        // icon / animation
+        if let systemImage    { state.systemImage = systemImage }
+        if let imageAnimation { state.imageAnimation = imageAnimation }
+
+        // Progress (clamped to [0,1]; <= 0 hides)
         if let progress {
             let clamped = max(0, min(1, progress))
             state.progress = (clamped > 0) ? clamped : nil
         }
-        if let stage {
-            state.stage = stage
-        }
-        if let onTapWithContext {
-            self.onTapWithContext = onTapWithContext
+
+        // Stage + tap handler
+        if let stage { state.stage = stage }
+        if let onTapWithContext { self.onTapWithContext = onTapWithContext }
+
+        // Replace SwiftUI content if requested
+        var contentReplaced = false
+        if let contentFactory {
+            self.contentView = contentFactory
+            if let host = hostController {
+                host.rootView = contentFactory(state)
+                contentReplaced = true
+            }
         }
 
-        hostController?.view.invalidateIntrinsicContentSize()
-
-        // Detect what actually changed
-        let textChanged = (oldTitle != state.title) || (oldSub != state.subtitle) || (oldFootnote != state.footnote)
+        // Re-measure width if text/image changed OR the view was replaced
+        let textChanged  = (oldTitle != state.title) || (oldSub != state.subtitle) || (oldFootnote != state.footnote)
         let imageChanged = (oldImage != state.systemImage)
         let stageChanged = (oldStage != state.stage)
 
-        // Bump revision for any meaningful state change so tap handlers can disambiguate
-        if textChanged || imageChanged || stageChanged {
+        // Bump revision for any meaningful change (text/image/stage/content)
+        if textChanged || imageChanged || stageChanged || contentReplaced {
             revisionForVisible &+= 1
         }
 
-        // Re-measure only when text or image changed (stage-only changes shouldn't resize)
-        if textChanged || imageChanged {
+        // Trigger layout updates
+        hostController?.view.invalidateIntrinsicContentSize()
+        if textChanged || imageChanged || contentReplaced {
             remeasureAndSetWidthConstraint(animated: true, force: false)
         }
     }
