@@ -446,6 +446,7 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     ///   - stage: New logical phase label passed to the tap handler.
     ///   - onTapWithContext: Replaces the current tap callback `(token, revision, stage)`.
     ///   - token: If provided, the update is applied only if this matches the active banner's token; otherwise ignored.
+    @MainActor
     public func update(title: String? = nil,
                        subtitle: String? = nil,
                        footnote: String? = nil,
@@ -457,76 +458,86 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                        progressColor: UIColor? = nil,
                        stage: String? = nil,
                        onTapWithContext: ((_ token: Int, _ revision: Int, _ stage: String?) -> Void)? = nil,
-                       for token: Int? = nil) {
-        if (token != nil && token != activeToken) || window == nil {
-            return
-        }
+                       for token: Int? = nil,
+                       content contentFactory: ((LucidBannerState) -> AnyView)? = nil)
+    {
+        // Target deve essere il banner attivo e deve esserci la window
+        guard window != nil, (token == nil || token == activeToken) else { return }
 
-        // Snapshot old values for change detection
-        let oldTitle = state.title
-        let oldSub = state.subtitle
+        // Snapshot per change detection
+        let oldTitle    = state.title
+        let oldSub      = state.subtitle
         let oldFootnote = state.footnote
-        let oldImage = state.systemImage
-        let oldStage = state.stage
+        let oldImage    = state.systemImage
+        let oldAnim     = state.imageAnimation
+        let oldStage    = state.stage
 
-        // Normalize title/subtitle/footnote
+        // Normalizzazione testo
         if let title {
-            let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-            state.title = trimmed.isEmpty ? "" : trimmed
+            let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
+            state.title = t.isEmpty ? "" : t
         }
         if let subtitle {
-            let trimmed = subtitle.trimmingCharacters(in: .whitespacesAndNewlines)
-            state.subtitle = trimmed.isEmpty ? nil : trimmed
+            let s = subtitle.trimmingCharacters(in: .whitespacesAndNewlines)
+            state.subtitle = s.isEmpty ? nil : s
         }
         if let footnote {
-            let trimmed = footnote.trimmingCharacters(in: .whitespacesAndNewlines)
-            state.footnote = trimmed.isEmpty ? nil : trimmed
-        }
-        if let textColor {
-            state.textColor = textColor
+            let f = footnote.trimmingCharacters(in: .whitespacesAndNewlines)
+            state.footnote = f.isEmpty ? nil : f
         }
 
-        if let systemImage {
-            state.systemImage = systemImage
-        }
-        if let imageColor {
-            state.imageColor = imageColor
-        }
-        if let imageAnimation {
-            state.imageAnimation = imageAnimation
-        }
+        // Colori (se li usi)
+        if let textColor      { state.textColor = textColor }
+        if let imageColor     { state.imageColor = imageColor }
+        if let progressColor  { state.progressColor = progressColor }
 
-        // Clamp progress to [0,1] and hide when <= 0
+        // Icona / animazione
+        if let systemImage    { state.systemImage = systemImage }
+        if let imageAnimation { state.imageAnimation = imageAnimation }
+
+        // Progress (clamp a [0,1], <=0 nasconde)
         if let progress {
             let clamped = max(0, min(1, progress))
             state.progress = (clamped > 0) ? clamped : nil
         }
-        if let progressColor {
-            state.progressColor = progressColor
+
+        // Stage + tap handler
+        if let stage { state.stage = stage }
+        if let onTapWithContext { self.onTapWithContext = onTapWithContext }
+
+        // Sostituzione della SwiftUI view (opzionale)
+        var contentReplaced = false
+        if let contentFactory {
+            self.contentView = contentFactory
+            if let host = hostController {
+                host.rootView = contentFactory(state)
+                contentReplaced = true
+            }
         }
 
-        if let stage {
-            state.stage = stage
-        }
-        if let onTapWithContext {
-            self.onTapWithContext = onTapWithContext
-        }
-
-        hostController?.view.invalidateIntrinsicContentSize()
-
-        // Detect what actually changed
-        let textChanged = (oldTitle != state.title) || (oldSub != state.subtitle) || (oldFootnote != state.footnote)
-        let imageChanged = (oldImage != state.systemImage)
+        // Change detection
+        let textChanged  = (oldTitle != state.title) || (oldSub != state.subtitle) || (oldFootnote != state.footnote)
+        let imageChanged = (oldImage != state.systemImage) || (oldAnim != state.imageAnimation)
         let stageChanged = (oldStage != state.stage)
 
-        // Bump revision for any meaningful state change so tap handlers can disambiguate
-        if textChanged || imageChanged || stageChanged {
+        // Bump revision quando serve (UI identity / tap disambiguation)
+        if textChanged || imageChanged || stageChanged || contentReplaced {
             revisionForVisible &+= 1
         }
 
-        // Re-measure only when text or image changed (stage-only changes shouldn't resize)
-        if textChanged || imageChanged {
-            remeasureAndSetWidthConstraint(animated: true, force: false)
+        // Richiedi re-layout
+        hostController?.view.invalidateIntrinsicContentSize()
+
+        // Rimisura solo se può cambiare la larghezza, o se abbiamo rimpiazzato la view
+        if textChanged || imageChanged || contentReplaced {
+            if isAnimatingIn && lockWidthUntilSettled && fixedWidth == nil {
+                pendingRelayout = true
+            } else {
+                remeasureAndSetWidthConstraint(animated: true, force: false)
+            }
+        } else {
+            // Stage/progress/color-only: garantisci un frame di layout
+            if let window { UIView.performWithoutAnimation { window.layoutIfNeeded() } }
         }
     }
 

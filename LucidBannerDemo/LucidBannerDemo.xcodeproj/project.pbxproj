@@ -7,12 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		F792CF472EB4A4E5003ACA7B /* LucidBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = F792CF442EB4A4E5003ACA7B /* LucidBanner.swift */; };
+		F792CF592EB4AE39003ACA7B /* LucidBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = F792CF562EB4AE39003ACA7B /* LucidBanner.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		F70787712EB09D3C00CE1625 /* LucidBannerDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LucidBannerDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		F792CF442EB4A4E5003ACA7B /* LucidBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LucidBanner.swift; sourceTree = "<group>"; };
+		F792CF562EB4AE39003ACA7B /* LucidBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LucidBanner.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -37,7 +37,7 @@
 		F70787682EB09D3C00CE1625 = {
 			isa = PBXGroup;
 			children = (
-				F792CF462EB4A4E5003ACA7B /* Sources */,
+				F792CF582EB4AE39003ACA7B /* Sources */,
 				F70787732EB09D3C00CE1625 /* LucidBannerDemo */,
 				F70787722EB09D3C00CE1625 /* Products */,
 			);
@@ -51,21 +51,22 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		F792CF452EB4A4E5003ACA7B /* LucidBanner */ = {
+		F792CF572EB4AE39003ACA7B /* LucidBanner */ = {
 			isa = PBXGroup;
 			children = (
-				F792CF442EB4A4E5003ACA7B /* LucidBanner.swift */,
+				F792CF562EB4AE39003ACA7B /* LucidBanner.swift */,
 			);
 			path = LucidBanner;
 			sourceTree = "<group>";
 		};
-		F792CF462EB4A4E5003ACA7B /* Sources */ = {
+		F792CF582EB4AE39003ACA7B /* Sources */ = {
 			isa = PBXGroup;
 			children = (
-				F792CF452EB4A4E5003ACA7B /* LucidBanner */,
+				F792CF572EB4AE39003ACA7B /* LucidBanner */,
 			);
-			path = Sources;
-			sourceTree = "<group>";
+			name = Sources;
+			path = ../Sources;
+			sourceTree = SOURCE_ROOT;
 		};
 /* End PBXGroup section */
 
@@ -141,7 +142,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F792CF472EB4A4E5003ACA7B /* LucidBanner.swift in Sources */,
+				F792CF592EB4AE39003ACA7B /* LucidBanner.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
