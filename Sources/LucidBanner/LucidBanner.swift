@@ -9,17 +9,23 @@ import SwiftUI
 import UIKit
 import Combine
 
+// MARK: - Shared State
+
 @MainActor
 public final class LucidBannerState: ObservableObject {
+    // Text
     @Published public var title: String
     @Published public var subtitle: String?
     @Published public var footnote: String?
 
+    // Icon & animation
     @Published public var systemImage: String?
     @Published public var imageAnimation: LucidBanner.LucidBannerAnimationStyle
 
+    // Progress
     @Published public var progress: Double?
 
+    // Misc
     @Published public var stage: String?
     @Published public var flags: [String: Any] = [:]
 
@@ -33,17 +39,14 @@ public final class LucidBannerState: ObservableObject {
         self.title = title
         self.subtitle = (subtitle?.isEmpty == true) ? nil : subtitle
         self.footnote = (footnote?.isEmpty == true) ? nil : footnote
-
         self.systemImage = systemImage
         self.imageAnimation = imageAnimation
-
         self.progress = progress
-
         self.stage = stage
     }
 }
 
-// MARK: - Window
+// MARK: - Passthrough Window
 
 @MainActor
 internal final class LucidBannerWindow: UIWindow {
@@ -57,7 +60,6 @@ internal final class LucidBannerWindow: UIWindow {
         guard let target = hitTargetView else {
             return nil
         }
-
         let p = target.convert(point, from: self)
         return target.bounds.contains(p) ? super.hitTest(point, with: event) : nil
     }
@@ -66,45 +68,23 @@ internal final class LucidBannerWindow: UIWindow {
 // MARK: - Manager
 
 @MainActor
-final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
-    /// Shared instance used to show and update banners.
+public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     public static let shared = LucidBanner()
 
-    /// Determines what happens if a banner is already showing.
-    public enum ShowPolicy {
-        /// Replaces the current banner immediately.
-        case replace
-        /// Queues the new banner to be shown after the current one.
-        case enqueue
-        /// Drops the new banner entirely.
-        case drop
-    }
+    public enum ShowPolicy { case replace, enqueue, drop }
+    public enum LucidBannerAnimationStyle { case none, rotate, pulse, pulsebyLayer, breathe, bounce, wiggle, scale }
+    public enum VerticalPosition { case top, center, bottom }
+    public enum HorizontalAlignment { case left, center, right }
 
-    /// Supported image animation styles.
-    public enum LucidBannerAnimationStyle {
-        case none, rotate, pulse, pulsebyLayer, breathe, bounce, wiggle, scale
-    }
-
-    public enum VerticalPosition {
-        case top, center, bottom
-    }
-
-    public enum HorizontalAlignment {
-        case left, center, right
-    }
-
-    /// Internal structure for queued banners.
+    // Pending payload used for queueing
     private struct PendingShow {
         let scene: UIScene?
         let title: String
         let subtitle: String?
         let footnote: String?
-        let textColor: UIColor
         let systemImage: String?
-        let imageColor: UIColor
         let imageAnimation: LucidBannerAnimationStyle
         let progress: Double?
-        let progressColor: UIColor
         let fixedWidth: CGFloat?
         let minWidth: CGFloat
         let maxWidth: CGFloat
@@ -121,9 +101,10 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         let token: Int
     }
 
-    // View factory
+    // View factory for the current visible banner
     private var contentView: ((LucidBannerState) -> AnyView)?
 
+    // Window/UI
     private var scene: UIScene?
     private var blocksTouches = false
     private var window: LucidBannerWindow?
@@ -150,20 +131,16 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     private var hAlignment: HorizontalAlignment = .center
     private var horizontalMargin: CGFloat = 12
     private var verticalMargin: CGFloat = 10
-
-    // Add this to LucidBanner's private properties
-    // Keep the position used by the currently visible banner.
-    // Prevents exit animation from picking up a new vPosition.
     private var presentedVPosition: VerticalPosition = .top
 
     // Queue
     private var queue: [PendingShow] = []
 
-    // Debounce for swipe gestures right after presentation
+    // Gestures
     private var interactionUnlockTime: CFTimeInterval = 0
     private weak var panGestureRef: UIPanGestureRecognizer?
 
-    // Shared state
+    // Shared observable state
     let state = LucidBannerState(title: "",
                                  subtitle: nil,
                                  footnote: nil,
@@ -182,19 +159,17 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     private var revisionForVisible: Int = 0
     private var onTapWithContext: ((_ token: Int, _ revision: Int, _ stage: String?) -> Void)?
 
-    // MARK: - PUBLIC
+    // MARK: - Public API
 
+    /// Presents a new banner. If one is already visible, behavior follows `policy`.
     @discardableResult
     public func show<Content: View>(scene: UIScene? = nil,
                                     title: String,
                                     subtitle: String? = nil,
                                     footnote: String? = nil,
-                                    textColor: UIColor = .label,
                                     systemImage: String? = nil,
-                                    imageColor: UIColor = .label,
                                     imageAnimation: LucidBannerAnimationStyle = .none,
                                     progress: Double? = nil,
-                                    progressColor: UIColor = .label,
                                     fixedWidth: CGFloat? = nil,
                                     minWidth: CGFloat = 220,
                                     maxWidth: CGFloat = 420,
@@ -209,51 +184,55 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                                     policy: ShowPolicy = .enqueue,
                                     onTapWithContext: ((_ token: Int, _ revision: Int, _ stage: String?) -> Void)? = nil,
                                     @ViewBuilder content: @escaping (LucidBannerState) -> Content) -> Int {
-        // Normalize input WITHOUT touching shared state.
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let normalizedTitle = trimmedTitle.isEmpty ? "" : trimmedTitle
 
         let normalizedSubtitle: String? = {
-            guard let s = subtitle?.trimmingCharacters(in: .whitespacesAndNewlines), !s.isEmpty else { return nil }
-            return s
+            guard let text = subtitle?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !text.isEmpty else {
+                return nil
+            }
+            return text
         }()
 
         let normalizedFootnote: String? = {
-            guard let f = footnote?.trimmingCharacters(in: .whitespacesAndNewlines), !f.isEmpty else { return nil }
-            return f
+            guard let text = footnote?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !text.isEmpty else {
+                return nil
+            }
+            return text
         }()
 
         let normalizedProgress: Double? = {
-            guard let p = progress, p > 0 else { return nil }
-            return p
+            guard let progress,
+                  progress > 0 else {
+                return nil
+            }
+            return progress
         }()
 
-        // If nothing meaningful to show, keep current token.
-        let hasContent = !normalizedTitle.isEmpty
-                       || (normalizedSubtitle != nil)
-                       || (normalizedFootnote != nil)
-                       || (normalizedProgress ?? 0) > 0
-        guard hasContent else { return activeToken }
+        // If nothing meaningful to show, keep current token
+        let hasContent = !normalizedTitle.isEmpty || normalizedSubtitle != nil || normalizedFootnote != nil || (normalizedProgress ?? 0) > 0
+        guard hasContent else {
+            return activeToken
+        }
 
-        // Use the state provided to the view factory (do NOT capture a stale instance).
+        // Prepare view factory bound to the shared state
         let viewFactory: (LucidBannerState) -> AnyView = { s in AnyView(content(s)) }
 
-        // Pre-generate token for this banner.
+        // Generate a token
         generation &+= 1
         let newToken = generation
 
-        // Build the pending payload (no state mutation here).
+        // Build pending payload
         let pending = PendingShow(
             scene: scene,
             title: normalizedTitle,
             subtitle: normalizedSubtitle,
             footnote: normalizedFootnote,
-            textColor: textColor,
             systemImage: systemImage,
-            imageColor: imageColor,
             imageAnimation: imageAnimation,
             progress: normalizedProgress,
-            progressColor: progressColor,
             fixedWidth: fixedWidth,
             minWidth: minWidth,
             maxWidth: maxWidth,
@@ -270,60 +249,54 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             token: newToken
         )
 
-        // If a banner is visible or animating, do NOT touch state. Queue or replace.
+        // If a window is active/animating, queue or replace
         if window != nil || isAnimatingIn || isDismissing {
             switch policy {
             case .drop:
-                // Explicitly drop: return current active token, nothing changes.
                 return activeToken
             case .enqueue:
                 queue.append(pending)
-                // Still return the current active token (the queued one isn't visible yet).
                 return activeToken
             case .replace:
                 queue.removeAll()
                 queue.append(pending)
-                // Dismiss current; the queued 'pending' will be started in completion.
                 dismiss { [weak self] in self?.dequeueAndStartIfNeeded() }
-                // Return the token of the replacing banner immediately to avoid ambiguity.
                 return newToken
             }
         }
 
-        // No banner is visible: apply and present now.
+        // No banner visible: present now
         activeToken = newToken
         applyPending(pending)
         startShow(with: pending.viewUI)
         return newToken
     }
 
+    /// Updates the currently visible banner's textual/icon/progress content (no view replacement).
     @MainActor
     public func update(title: String? = nil,
                        subtitle: String? = nil,
                        footnote: String? = nil,
-                       textColor: UIColor? = nil,
                        systemImage: String? = nil,
-                       imageColor: UIColor? = nil,
                        imageAnimation: LucidBannerAnimationStyle? = nil,
                        progress: Double? = nil,
-                       progressColor: UIColor? = nil,
                        stage: String? = nil,
                        onTapWithContext: ((_ token: Int, _ revision: Int, _ stage: String?) -> Void)? = nil,
-                       for token: Int? = nil,
-                       content contentFactory: ((LucidBannerState) -> AnyView)? = nil)
-    {
-        // Target deve essere il banner attivo e deve esserci la window
-        guard window != nil, (token == nil || token == activeToken) else { return }
+                       for token: Int? = nil) {
+        // Must target the active banner while window is up
+        guard window != nil, (token == nil || token == activeToken) else {
+            return
+        }
 
-        // Snapshot per change detection
-        let oldTitle    = state.title
-        let oldSub      = state.subtitle
-        let oldFootnote = state.footnote
-        let oldImage    = state.systemImage
-        let oldAnim     = state.imageAnimation
-        let oldStage    = state.stage
+        // Snapshot for change detection
+        let oldTitle = state.title
+        let oldSubTitle = state.subtitle
+        let oldFootNote = state.footnote
+        let oldImage = state.systemImage
+        let oldAnim = state.imageAnimation
+        let oldStage = state.stage
 
-        // Normalizzazione testo
+        // Normalize and apply text
         if let title {
             let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
             state.title = t.isEmpty ? "" : t
@@ -337,59 +310,60 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             state.footnote = f.isEmpty ? nil : f
         }
 
-        // Icona / animazione
-        if let systemImage    { state.systemImage = systemImage }
-        if let imageAnimation { state.imageAnimation = imageAnimation }
+        // Icon/animation
+        if let systemImage {
+            state.systemImage = systemImage
+        }
+        if let imageAnimation {
+            state.imageAnimation = imageAnimation
+        }
 
-        // Progress (clamp a [0,1], <=0 nasconde)
+        // Progress
         if let progress {
-            let clamped = max(0, min(1, progress))
-            state.progress = (clamped > 0) ? clamped : nil
+            let c = max(0, min(1, progress))
+            state.progress = (c > 0) ? c : nil
         }
 
-        // Stage + tap handler
-        if let stage { state.stage = stage }
-        if let onTapWithContext { self.onTapWithContext = onTapWithContext }
-
-        // Sostituzione della SwiftUI view (opzionale)
-        var contentReplaced = false
-        if let contentFactory {
-            self.contentView = contentFactory
-            if let host = hostController {
-                host.rootView = contentFactory(state)
-                contentReplaced = true
-            }
+        // Stage & tap
+        if let stage {
+            state.stage = stage
+        }
+        if let onTapWithContext {
+            self.onTapWithContext = onTapWithContext
         }
 
-        // Change detection
-        let textChanged  = (oldTitle != state.title) || (oldSub != state.subtitle) || (oldFootnote != state.footnote)
+        // Change detection for revision & layout
+        let textChanged = (oldTitle != state.title) || (oldSubTitle != state.subtitle) || (oldFootNote != state.footnote)
         let imageChanged = (oldImage != state.systemImage) || (oldAnim != state.imageAnimation)
         let stageChanged = (oldStage != state.stage)
 
-        // Bump revision quando serve (UI identity / tap disambiguation)
-        if textChanged || imageChanged || stageChanged || contentReplaced {
+        if textChanged || imageChanged || stageChanged {
             revisionForVisible &+= 1
         }
 
-        // Richiedi re-layout
         hostController?.view.invalidateIntrinsicContentSize()
 
-        // Rimisura solo se può cambiare la larghezza, o se abbiamo rimpiazzato la view
-        if textChanged || imageChanged || contentReplaced {
+        if textChanged || imageChanged {
             if isAnimatingIn && lockWidthUntilSettled && fixedWidth == nil {
                 pendingRelayout = true
             } else {
                 remeasureAndSetWidthConstraint(animated: true, force: false)
             }
         } else {
-            // Stage/progress/color-only: garantisci un frame di layout
-            if let window { UIView.performWithoutAnimation { window.layoutIfNeeded() } }
+            if let window {
+                UIView.performWithoutAnimation {
+                    window.layoutIfNeeded()
+                }
+            }
         }
     }
 
+    /// Whether a token still refers to the visible banner.
     public func isAlive(_ token: Int) -> Bool {
         token == activeToken && window != nil
     }
+
+    // MARK: - Dismiss
 
     public func dismiss(completion: (() -> Void)? = nil) {
         dismissTimer?.cancel()
@@ -406,7 +380,6 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             return
         }
 
-        // Immediately disable interactions and swipe
         hostView.isUserInteractionEnabled = false
         panGestureRef?.isEnabled = false
         isDismissing = true
@@ -431,8 +404,6 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             self.window?.layoutIfNeeded()
         } completion: { [weak self] _ in
             guard let self else { return }
-
-            // Fully tear down current window
             self.hostController = nil
             window.isHidden = true
             self.window = nil
@@ -440,13 +411,9 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             self.heightConstraint = nil
             self.isDismissing = false
 
-            // Schedule next only after a short safety delay (to prevent reflash)
             Task { @MainActor [weak self] in
-                // Give the render loop a full frame to release the old window
-                try? await Task.sleep(nanoseconds: 250_000_000) // 0.25s
+                try? await Task.sleep(nanoseconds: 250_000_000)
                 guard let self else { return }
-
-                // Ensure window really gone before starting new
                 if self.window == nil, !self.isDismissing {
                     self.dequeueAndStartIfNeeded()
                 }
@@ -455,92 +422,29 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
     }
 
-    /// Dismisses the active banner only if its token matches `token`.
-    /// If the tokens don't match, this is a no-op. The dismissal animation direction
-    /// mirrors the way the banner was presented (top/center/bottom).
-    ///
-    /// **Queue behavior**
-    /// After the active banner finishes dismissing, the next enqueued banner (if any) is presented
-    /// automatically using its own parameters.
-    ///
-    /// - Parameters:
-    ///   - token: The token returned by `show(...)` for the banner to dismiss.
-    ///   - completion: Optional closure invoked after the dismissal animation completes.
     public func dismiss(for token: Int, completion: (() -> Void)? = nil) {
-        guard token == activeToken else {
-            return
-        }
+        guard token == activeToken else { return }
         dismiss(completion: completion)
     }
 
-    // MARK: - Private
-
-    private func setSize(width: CGFloat?, height: CGFloat?, animated: Bool = true) {
-        self.fixedWidth = width
-        guard let window,
-              let view = hostController?.view else {
-            return
-        }
-
-        if let width {
-            if let widthConstraint {
-                widthConstraint.constant = width
-            } else {
-                let constraint = view.widthAnchor.constraint(equalToConstant: width)
-                constraint.isActive = true
-                widthConstraint = constraint
-            }
-        } else {
-            remeasureAndSetWidthConstraint(animated: animated, force: true)
-        }
-
-        if let height {
-            if let heightConstraint {
-                heightConstraint.constant = height
-            } else {
-                let constraint = view.heightAnchor.constraint(equalToConstant: height)
-                constraint.isActive = true
-                heightConstraint = constraint
-            }
-        } else {
-            heightConstraint?.isActive = false
-            heightConstraint = nil
-        }
-
-        if animated {
-            UIView.animate(withDuration: 0.2) { window.layoutIfNeeded() }
-        } else {
-            window.layoutIfNeeded()
-        }
-    }
+    // MARK: - Internals
 
     private func startShow(with viewUI: @escaping (LucidBannerState) -> AnyView) {
+        // No more view replacement logic here: show binds the view once.
         lockWidthUntilSettled = true
         isAnimatingIn = true
         pendingRelayout = false
         contentView = viewUI
-
-        if window == nil {
-            attachWindowAndPresent()
-        } else {
-            replaceContentInternal(remeasureWidth: false)
-            remeasureAndSetWidthConstraint(animated: false, force: true)
-        }
-
+        attachWindowAndPresent()
         scheduleAutoDismiss()
     }
 
-    // Apply all pending parameters to the live state right before presenting.
-    // This centralizes state mutation so `show(...)` can stay side-effect free when enqueueing.
     private func applyPending(_ p: PendingShow) {
-        self.scene = p.scene
-
-        // Text & colors
+        // Text & image
+        scene = p.scene
         state.title = p.title
         state.subtitle = p.subtitle
         state.footnote = p.footnote
-
-        // Image & animation
         state.systemImage = p.systemImage
         state.imageAnimation = p.imageAnimation
 
@@ -549,40 +453,35 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         state.stage = p.stage
 
         // Layout & behavior
-        self.autoDismissAfter = p.autoDismissAfter
-        self.fixedWidth = p.fixedWidth
-        self.minWidth = p.minWidth
-        self.maxWidth = p.maxWidth
-        self.vPosition = p.vPosition
-        self.hAlignment = p.hAlignment
-        self.horizontalMargin = p.horizontalMargin
-        self.verticalMargin = p.verticalMargin
-        self.blocksTouches = p.blocksTouches
-        self.swipeToDismiss = p.blocksTouches ? false : p.swipeToDismiss
+        autoDismissAfter = p.autoDismissAfter
+        fixedWidth = p.fixedWidth
+        minWidth = p.minWidth
+        maxWidth = p.maxWidth
+        vPosition = p.vPosition
+        hAlignment = p.hAlignment
+        horizontalMargin = p.horizontalMargin
+        verticalMargin = p.verticalMargin
+        blocksTouches = p.blocksTouches
+        swipeToDismiss = p.blocksTouches ? false : p.swipeToDismiss
 
         // Tap & revision
-        self.onTapWithContext = p.onTapWithContext
-        self.revisionForVisible = 0
+        onTapWithContext = p.onTapWithContext
+        revisionForVisible = 0
     }
 
-    /// Dequeues the next pending banner and starts it, if possible.
     private func dequeueAndStartIfNeeded() {
         guard !isAnimatingIn, !isDismissing, window == nil else { return }
-        guard !queue.isEmpty else { return }
+        guard !queue.isEmpty else {
+            return
+        }
 
-        // Pop next banner in queue
         let next = queue.removeFirst()
-
-        // Prevent race conditions: mark as animating before attach
         isAnimatingIn = true
         activeToken = next.token
 
-        // Apply configuration and present after short delay
         Task { @MainActor [weak self] in
             guard let self else { return }
             self.applyPending(next)
-
-            // Ensure vPosition reset is honored
             self.presentedVPosition = next.vPosition
             self.startShow(with: next.viewUI)
         }
@@ -602,12 +501,12 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         window.isPassthrough = !blocksTouches
         window.accessibilityViewIsModal = blocksTouches
 
-        // Hosting SwiftUI
+        // Build SwiftUI host once per show
         let content = contentView?(state) ?? AnyView(EmptyView())
         let host = UIHostingController(rootView: content)
         host.view.backgroundColor = .clear
 
-        // Root (scrim + banner)
+        // Root
         let root = UIView()
         root.backgroundColor = .clear
         root.translatesAutoresizingMaskIntoConstraints = false
@@ -625,7 +524,6 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         host.view.translatesAutoresizingMaskIntoConstraints = false
 
         var constraints: [NSLayoutConstraint] = []
-        // Scrim full screen
         constraints += [
             scrim.topAnchor.constraint(equalTo: root.topAnchor),
             scrim.leadingAnchor.constraint(equalTo: root.leadingAnchor),
@@ -633,7 +531,6 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             scrim.bottomAnchor.constraint(equalTo: root.bottomAnchor)
         ]
 
-        // Vertical position
         switch vPosition {
         case .top:
             constraints.append(host.view.topAnchor.constraint(equalTo: root.safeAreaLayoutGuide.topAnchor,
@@ -645,7 +542,6 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                                                                  constant: -verticalMargin))
         }
 
-        // Horizontal alignment
         switch hAlignment {
         case .center:
             constraints.append(host.view.centerXAnchor.constraint(equalTo: root.centerXAnchor))
@@ -657,26 +553,23 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                                                                    constant: -horizontalMargin))
         }
 
-        // Min height
         constraints.append(host.view.heightAnchor.constraint(greaterThanOrEqualToConstant: minHeight))
         NSLayoutConstraint.activate(constraints)
 
-        // Hugging/Compression
         host.view.setContentHuggingPriority(.required, for: .vertical)
         host.view.setContentCompressionResistancePriority(.required, for: .vertical)
         host.view.setContentHuggingPriority(.required, for: .horizontal)
         host.view.setContentCompressionResistancePriority(.required, for: .horizontal)
 
-        // Gestures
         window.hitTargetView = host.view
         var panGesture: UIPanGestureRecognizer?
         if swipeToDismiss {
             let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePanGesture(_:)))
             pan.cancelsTouchesInView = false
-            pan.delegate = self                         // <<— important
+            pan.delegate = self
             host.view.addGestureRecognizer(pan)
             panGesture = pan
-            panGestureRef = pan                         // <<— keep a weak ref
+            panGestureRef = pan
         }
 
         let tap = UITapGestureRecognizer(target: self, action: #selector(handleBannerTap))
@@ -701,30 +594,19 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             remeasureAndSetWidthConstraint(animated: false, force: true)
         }
 
-        // Snapshot the exact position used by this visible banner
         presentedVPosition = vPosition
-
-        // Debounce swipe interactions for a short time after showing
         interactionUnlockTime = CACurrentMediaTime() + 0.25
 
-        // Avoid flashing in wrong place: fade in after layout
         host.view.alpha = 0
-
-        // Make visible so Auto Layout resolves final frames
         window.makeKeyAndVisible()
         window.layoutIfNeeded()
 
-        // Set initial off-screen transform using the *actual* window bounds
         switch presentedVPosition {
-        case .top:
-            host.view.transform = CGAffineTransform(translationX: 0, y: -window.bounds.height)
-        case .bottom:
-            host.view.transform = CGAffineTransform(translationX: 0, y:  window.bounds.height)
-        case .center:
-            host.view.transform = CGAffineTransform(scaleX: 0.95, y: 0.95)
+        case .top:    host.view.transform = CGAffineTransform(translationX: 0, y: -window.bounds.height)
+        case .bottom: host.view.transform = CGAffineTransform(translationX: 0, y:  window.bounds.height)
+        case .center: host.view.transform = CGAffineTransform(scaleX: 0.95, y: 0.95)
         }
 
-        // Animate in
         UIView.animate(withDuration: 0.5,
                        delay: 0,
                        usingSpringWithDamping: 0.85,
@@ -743,33 +625,14 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
     }
 
-    private func replaceContentInternal(remeasureWidth: Bool) {
-        guard let host = hostController else {
-            return
-        }
-        let newView = contentView?(state) ?? AnyView(EmptyView())
-
-        host.rootView = newView
-        if remeasureWidth {
-            remeasureAndSetWidthConstraint(animated: false, force: false)
-        }
-        window?.layoutIfNeeded()
-    }
-
     private func remeasureAndSetWidthConstraint(animated: Bool, force: Bool) {
-        guard let window,
-              let host = hostController else {
-            return
-        }
+        guard let window, let host = hostController else { return }
 
         if isAnimatingIn && lockWidthUntilSettled && !force {
             pendingRelayout = true
             return
         }
-
-        if fixedWidth != nil {
-            return
-        }
+        if fixedWidth != nil { return }
 
         state.flags["measuring"] = true
         defer { state.flags["measuring"] = false }
@@ -802,10 +665,8 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
     private func scheduleAutoDismiss() {
         dismissTimer?.cancel()
-        let seconds = self.autoDismissAfter
-        guard seconds > 0 else {
-            return
-        }
+        let seconds = autoDismissAfter
+        guard seconds > 0 else { return }
         let tokenAtSchedule = activeToken
 
         dismissTimer = Task { [weak self] in
@@ -814,9 +675,10 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
     }
 
-    // MARK: - UIGestureRecognizerDelegate
+    // MARK: - Gestures
 
-    public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+    public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                                  shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
         return false
     }
 
@@ -824,11 +686,7 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         guard let hostView = hostController?.view else { return true }
         let p = touch.location(in: hostView)
         let inside = hostView.bounds.contains(p)
-
-        if !blocksTouches && !inside {
-            return false
-        }
-
+        if !blocksTouches && !inside { return false }
         if blocksTouches {
             if gestureRecognizer is UITapGestureRecognizer { return inside }
             if gestureRecognizer is UIPanGestureRecognizer { return inside }
@@ -837,22 +695,13 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     }
 
     public func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        // Debounce: do not begin pan too soon after presentation
-        if CACurrentMediaTime() < interactionUnlockTime {
-            return false
-        }
-
-        // Directional guard: allow only meaningful initial direction
-        if let pan = gestureRecognizer as? UIPanGestureRecognizer,
-           let view = pan.view {
+        if CACurrentMediaTime() < interactionUnlockTime { return false }
+        if let pan = gestureRecognizer as? UIPanGestureRecognizer, let view = pan.view {
             let velocityY = pan.velocity(in: view).y
             switch presentedVPosition {
-            case .top:
-                return velocityY < 0   // swipe up only
-            case .bottom:
-                return velocityY > 0   // swipe down only
+            case .top:    return velocityY < 0
+            case .bottom: return velocityY > 0
             case .center:
-                // At center require a clear vertical intent
                 let t = pan.translation(in: view)
                 return abs(t.y) > abs(t.x) && abs(velocityY) > 150
             }
@@ -862,18 +711,14 @@ final public class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
     @objc private func handlePanGesture(_ g: UIPanGestureRecognizer) {
         guard let view = hostController?.view else { return }
-
-        // Safety: ignore gestures that start too early (debounce window)
         if CACurrentMediaTime() < interactionUnlockTime { return }
 
         let dy = g.translation(in: view).y
 
         func applyTransform(for y: CGFloat) {
             switch presentedVPosition {
-            case .top:
-                view.transform = CGAffineTransform(translationX: 0, y: min(0, y))
-            case .bottom:
-                view.transform = CGAffineTransform(translationX: 0, y: max(0, y))
+            case .top:    view.transform = CGAffineTransform(translationX: 0, y: min(0, y))
+            case .bottom: view.transform = CGAffineTransform(translationX: 0, y: max(0, y))
             case .center:
                 let t = max(-80, min(80, y))
                 let s = max(0.9, 1.0 - abs(t) / 800.0)
