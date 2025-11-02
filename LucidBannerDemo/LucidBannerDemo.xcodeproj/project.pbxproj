@@ -11,17 +11,14 @@
 		F792CF5F2EB4AF66003ACA7B /* LucidBannerDemoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F792CF5B2EB4AF66003ACA7B /* LucidBannerDemoApp.swift */; };
 		F792CF612EB4AFB0003ACA7B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F792CF602EB4AFAE003ACA7B /* ContentView.swift */; };
 		F792CF632EB4AFED003ACA7B /* MinimalBannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F792CF622EB4AFEA003ACA7B /* MinimalBannerView.swift */; };
-		F792CF652EB4B006003ACA7B /* MinimalBannerSuccessView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F792CF642EB4B006003ACA7B /* MinimalBannerSuccessView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		F70787712EB09D3C00CE1625 /* LucidBannerDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LucidBannerDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F792CF562EB4AE39003ACA7B /* LucidBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LucidBanner.swift; sourceTree = "<group>"; };
-		F792CF5A2EB4AF66003ACA7B /* LucidBannerDemo.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = LucidBannerDemo.xcodeproj; sourceTree = "<group>"; };
 		F792CF5B2EB4AF66003ACA7B /* LucidBannerDemoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LucidBannerDemoApp.swift; sourceTree = "<group>"; };
 		F792CF602EB4AFAE003ACA7B /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		F792CF622EB4AFEA003ACA7B /* MinimalBannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinimalBannerView.swift; sourceTree = "<group>"; };
-		F792CF642EB4B006003ACA7B /* MinimalBannerSuccessView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinimalBannerSuccessView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -72,11 +69,9 @@
 		F792CF5C2EB4AF66003ACA7B /* LucidBannerDemo */ = {
 			isa = PBXGroup;
 			children = (
-				F792CF5A2EB4AF66003ACA7B /* LucidBannerDemo.xcodeproj */,
+				F792CF5B2EB4AF66003ACA7B /* LucidBannerDemoApp.swift */,
 				F792CF602EB4AFAE003ACA7B /* ContentView.swift */,
 				F792CF622EB4AFEA003ACA7B /* MinimalBannerView.swift */,
-				F792CF642EB4B006003ACA7B /* MinimalBannerSuccessView.swift */,
-				F792CF5B2EB4AF66003ACA7B /* LucidBannerDemoApp.swift */,
 			);
 			name = LucidBannerDemo;
 			sourceTree = SOURCE_ROOT;
@@ -153,7 +148,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				F792CF612EB4AFB0003ACA7B /* ContentView.swift in Sources */,
-				F792CF652EB4B006003ACA7B /* MinimalBannerSuccessView.swift in Sources */,
 				F792CF5F2EB4AF66003ACA7B /* LucidBannerDemoApp.swift in Sources */,
 				F792CF632EB4AFED003ACA7B /* MinimalBannerView.swift in Sources */,
 				F792CF592EB4AE39003ACA7B /* LucidBanner.swift in Sources */,

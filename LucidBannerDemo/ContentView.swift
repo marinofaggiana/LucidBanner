@@ -14,26 +14,6 @@ struct ContentView: View {
                 ) { state in
                     MinimalBannerView(state: state)
                 }
-
-                // After 2 seconds, replace the SwiftUI content via `update`
-                Task { @MainActor in
-                    try? await Task.sleep(nanoseconds: 2_000_000_000)
-
-                    // Guard that the same banner is still visible
-                    guard LucidBanner.shared.isAlive(token) else { return }
-
-                    LucidBanner.shared.update(
-                        title: "Completed",
-                        subtitle: "Everything is safe",
-                        systemImage: "checkmark.circle",
-                        for: token
-                    ) { state in
-                        AnyView(MinimalBannerSuccessView(state: state))
-                    }
-
-                    try? await Task.sleep(nanoseconds: 2_000_000_000)
-                    LucidBanner.shared.dismiss(for: token)
-                }
             }
 
             Button("Show Bottom (auto-dismiss)") {
