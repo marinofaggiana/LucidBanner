@@ -14,7 +14,7 @@ import Combine
 @MainActor
 public final class LucidBannerState: ObservableObject {
     // Text
-    @Published public var title: String
+    @Published public var title: String?
     @Published public var subtitle: String?
     @Published public var footnote: String?
 
@@ -29,14 +29,14 @@ public final class LucidBannerState: ObservableObject {
     @Published public var stage: String?
     @Published public var flags: [String: Any] = [:]
 
-    public init(title: String,
+    public init(title: String? = nil,
                 subtitle: String? = nil,
                 footnote: String? = nil,
                 systemImage: String? = nil,
                 imageAnimation: LucidBanner.LucidBannerAnimationStyle,
                 progress: Double? = nil,
                 stage: String? = nil) {
-        self.title = title
+        self.title = (title?.isEmpty == true) ? nil : title
         self.subtitle = (subtitle?.isEmpty == true) ? nil : subtitle
         self.footnote = (footnote?.isEmpty == true) ? nil : footnote
         self.systemImage = systemImage
@@ -81,7 +81,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     // Pending payload used for queueing
     private struct PendingShow {
         let scene: UIScene?
-        let title: String
+        let title: String?
         let subtitle: String?
         let footnote: String?
         let systemImage: String?
@@ -143,7 +143,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     private weak var panGestureRef: UIPanGestureRecognizer?
 
     // Shared observable state
-    let state = LucidBannerState(title: "",
+    let state = LucidBannerState(title: nil,
                                  subtitle: nil,
                                  footnote: nil,
                                  systemImage: nil,
@@ -166,7 +166,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// Presents a new banner. If one is already visible, behavior follows `policy`.
     @discardableResult
     public func show<Content: View>(scene: UIScene? = nil,
-                                    title: String,
+                                    title: String? = nil,
                                     subtitle: String? = nil,
                                     footnote: String? = nil,
                                     systemImage: String? = nil,
@@ -186,8 +186,13 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                                     policy: ShowPolicy = .enqueue,
                                     onTapWithContext: ((_ token: Int, _ revision: Int, _ stage: String?) -> Void)? = nil,
                                     @ViewBuilder content: @escaping (LucidBannerState) -> Content) -> Int {
-        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        let normalizedTitle = trimmedTitle.isEmpty ? "" : trimmedTitle
+        let normalizedTitle: String? = {
+            guard let text = title?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !text.isEmpty else {
+                return nil
+            }
+            return text
+        }()
 
         let normalizedSubtitle: String? = {
             guard let text = subtitle?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -214,7 +219,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }()
 
         // If nothing meaningful to show, keep current token
-        let hasContent = !normalizedTitle.isEmpty || normalizedSubtitle != nil || normalizedFootnote != nil || (normalizedProgress ?? 0) > 0
+        let hasContent = normalizedTitle != nil || normalizedSubtitle != nil || normalizedFootnote != nil || (normalizedProgress ?? 0) > 0
         guard hasContent else {
             return activeToken
         }
@@ -582,7 +587,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
         host.view.isAccessibilityElement = true
         host.view.accessibilityTraits.insert(.button)
-        host.view.accessibilityLabel = state.title.isEmpty ? "Banner" : state.title
+        host.view.accessibilityLabel = "Banner"
 
         self.window = window
         self.hostController = host
