@@ -72,7 +72,9 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     public static let shared = LucidBanner()
 
     public enum ShowPolicy { case replace, enqueue, drop }
-    public enum LucidBannerAnimationStyle { case none, rotate, pulse, pulsebyLayer, breathe, bounce, wiggle, scale }
+    public enum LucidBannerAnimationStyle {
+        case none, rotate, pulse, pulsebyLayer, breathe, bounce, wiggle, scale, scaleUpbyLayer
+    }
     public enum VerticalPosition { case top, center, bottom }
     public enum HorizontalAlignment { case left, center, right }
 
