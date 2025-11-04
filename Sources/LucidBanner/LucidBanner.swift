@@ -288,23 +288,24 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         return newToken
     }
 
-    /// Updates the currently visible banner's textual/icon/progress content (no view replacement).
     @MainActor
     public func update(title: String? = nil,
                        subtitle: String? = nil,
                        footnote: String? = nil,
                        systemImage: String? = nil,
-                       imageAnimation: LucidBannerAnimationStyle? = nil,
+                       imageAnimation: LucidBanner.LucidBannerAnimationStyle? = nil,
                        progress: Double? = nil,
                        stage: String? = nil,
                        onTapWithContext: ((_ token: Int, _ revision: Int, _ stage: String?) -> Void)? = nil,
                        for token: Int? = nil) {
-        // Must target the active banner while window is up
+        // Must target the active banner
         guard window != nil, (token == nil || token == activeToken) else {
             return
         }
 
-        // Normalize and apply text
+        // Snapshot to detect progress visibility change
+        let wasProgressVisible = (state.progress ?? 0) > 0
+
         if let title {
             let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
             state.title = t.isEmpty ? nil : t
@@ -318,7 +319,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             state.footnote = f.isEmpty ? nil : f
         }
 
-        // Icon/animation
         if let systemImage {
             state.systemImage = systemImage
         }
@@ -326,10 +326,10 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             state.imageAnimation = imageAnimation
         }
 
-        // Progress
         if let progress {
+            // Clamp and set visibility
             let clamped = max(0, min(1, progress))
-            state.progress = (clamped > 0) ? clamped : nil
+            state.progress = clamped > 0 ? clamped : nil
         }
 
         if let stage {
@@ -339,18 +339,30 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             self.onTapWithContext = onTapWithContext
         }
 
+        // Detect if progress view appeared/disappeared
+        let isProgressVisibleNow = (state.progress ?? 0) > 0
+        let progressVisibilityChanged = wasProgressVisible != isProgressVisibleNow
 
-        // Any content change counts as a revision
+        // Any content change bumps revision (optional, but useful for tap context)
         revisionForVisible &+= 1
 
         hostController?.view.invalidateIntrinsicContentSize()
 
-        // We always remeasure on update
-        if isAnimatingIn && lockWidthUntilSettled && fixedWidth == nil {
-            // Defer until animation ends
-            pendingRelayout = true
+        // If only the numeric progress changed (visible -> visible), DO NOT remeasure
+        if progressVisibilityChanged {
+            // Structure of the view changed -> remeasure
+            if isAnimatingIn && lockWidthUntilSettled && fixedWidth == nil {
+                pendingRelayout = true
+            } else {
+                remeasureAndSetWidthConstraint(animated: true, force: true)
+            }
         } else {
-            remeasureAndSetWidthConstraint(animated: true, force: true)
+            // No structural change: just layout the window without animation
+            if let window {
+                UIView.performWithoutAnimation {
+                    window.layoutIfNeeded()
+                }
+            }
         }
     }
 
