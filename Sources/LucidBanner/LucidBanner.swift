@@ -643,7 +643,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     private func remeasureAndSetWidthConstraint(animated: Bool, force: Bool) {
         guard let window, let host = hostController else { return }
 
-        // during initial animation, skip unless forced
+        // skip during initial animation unless forced
         if isAnimatingIn && lockWidthUntilSettled && !force {
             pendingRelayout = true
             return
@@ -652,14 +652,9 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         state.flags["measuring"] = true
         defer { state.flags["measuring"] = false }
 
-        host.view.setNeedsLayout()
-        host.view.layoutIfNeeded()
-
-        // available width in current orientation
+        // available width in current window
         let availableWidth = window.bounds.width - (horizontalMargin * 2)
         let widthCap = min(max(0, availableWidth), maxWidth)
-
-        // give SwiftUI vertical room so text can wrap
         let fittingSize = host.sizeThatFits(
             in: CGSize(width: widthCap, height: .greatestFiniteMagnitude)
         )
@@ -707,6 +702,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             heightConstraint = c
         }
 
+        // apply
         if animated {
             UIView.animate(withDuration: 0.20) {
                 window.layoutIfNeeded()
