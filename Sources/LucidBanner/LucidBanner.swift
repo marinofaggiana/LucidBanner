@@ -123,14 +123,11 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     // Size
     private var widthConstraint: NSLayoutConstraint?
     private var heightConstraint: NSLayoutConstraint?
+    private var lastMeasuredHeight: CGFloat = 0
     private var minWidth: CGFloat = 220
     private var maxWidth: CGFloat = 420
     private let minHeight: CGFloat = 44
     private var fixedWidth: CGFloat?
-
-    // Keeps track of the last layout-affecting combination of content.
-    // Used to avoid redundant size recalculations.
-    private var lastLayoutSignature: String = ""
 
     // Position
     private var vPosition: VerticalPosition = .top
@@ -299,7 +296,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             return
         }
 
-        // Apply updates
+        // Normalize and apply text
         if let title {
             let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
             state.title = t.isEmpty ? nil : t
@@ -312,17 +309,21 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             let f = footnote.trimmingCharacters(in: .whitespacesAndNewlines)
             state.footnote = f.isEmpty ? nil : f
         }
+
+        // Icon/animation
         if let systemImage {
             state.systemImage = systemImage
         }
         if let imageAnimation {
             state.imageAnimation = imageAnimation
         }
+
+        // Progress
         if let progress {
-            // Clamp and decide visibility
             let clamped = max(0, min(1, progress))
-            state.progress = clamped > 0 ? clamped : nil
+            state.progress = (clamped > 0) ? clamped : nil
         }
+
         if let stage {
             state.stage = stage
         }
@@ -330,32 +331,18 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             self.onTapWithContext = onTapWithContext
         }
 
-        // Build layout-sensitive signature
-        let progressVisible = (state.progress ?? 0) > 0
-        let layoutSignature = [
-            state.title ?? "",
-            state.subtitle ?? "",
-            state.footnote ?? "",
-            state.systemImage ?? "",
-            progressVisible ? "prog-on" : "prog-off"
-        ].joined(separator: "|")
 
-        if layoutSignature != lastLayoutSignature {
-            lastLayoutSignature = layoutSignature
-            revisionForVisible &+= 1
+        // Any content change counts as a revision
+        revisionForVisible &+= 1
 
-            if isAnimatingIn && lockWidthUntilSettled && fixedWidth == nil {
-                pendingRelayout = true
-            } else {
-                // Force = allow grow and shrink because view structure actually changed
-                remeasureAndSetWidthConstraint(animated: true, force: true)
-            }
+        hostController?.view.invalidateIntrinsicContentSize()
+
+        // We always remeasure on update
+        if isAnimatingIn && lockWidthUntilSettled && fixedWidth == nil {
+            // Defer until animation ends
+            pendingRelayout = true
         } else {
-            if let window {
-                UIView.performWithoutAnimation {
-                    window.layoutIfNeeded()
-                }
-            }
+            remeasureAndSetWidthConstraint(animated: true, force: true)
         }
     }
 
@@ -626,41 +613,84 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
     }
 
+    @MainActor
     private func remeasureAndSetWidthConstraint(animated: Bool, force: Bool) {
         guard let window, let host = hostController else { return }
 
+        // If the banner is still animating in and we are not forcing, defer the layout
         if isAnimatingIn && lockWidthUntilSettled && !force {
             pendingRelayout = true
             return
         }
-        if fixedWidth != nil { return }
 
+        // Mark measuring on state (in case the SwiftUI view wants to react)
         state.flags["measuring"] = true
-        defer { state.flags["measuring"] = false }
+        defer {
+            state.flags["measuring"] = false
+        }
 
+        // Make sure SwiftUI view is laid out before measuring
         host.view.setNeedsLayout()
         host.view.layoutIfNeeded()
 
+        // Compute available width inside window margins
         let availableWidth = window.bounds.width - (horizontalMargin * 2)
         let widthCap = min(max(0, availableWidth), maxWidth)
-        let fitting = host.sizeThatFits(in: CGSize(width: widthCap, height: UIView.layoutFittingCompressedSize.height))
-        let target = min(max(fitting.width, minWidth), widthCap)
+
+        // Ask SwiftUI how big it wants to be for this width
+        let fittingSize = host.sizeThatFits(
+            in: CGSize(width: widthCap, height: UIView.layoutFittingCompressedSize.height)
+        )
+
+        // ---- WIDTH ----
+        let targetWidth: CGFloat
+        if let fixedWidth {
+            // Honor fixed width but clamp to screen width
+            targetWidth = min(fixedWidth, widthCap)
+        } else {
+            // Clamp to min/max and available width
+            targetWidth = min(max(fittingSize.width, minWidth), widthCap)
+        }
 
         if let widthConstraint {
             let current = widthConstraint.constant
-            let newWidth = (force ? target : max(target, current))
-            guard abs(newWidth - current) > 0.5 else { return }
-            widthConstraint.constant = newWidth
+            // If force == true, accept both grow and shrink; otherwise only grow
+            let newWidth = force ? targetWidth : max(targetWidth, current)
+            if abs(newWidth - current) > 0.5 {
+                widthConstraint.constant = newWidth
+            }
         } else {
-            let constraint = host.view.widthAnchor.constraint(equalToConstant: target)
-            constraint.isActive = true
-            widthConstraint = constraint
+            let c = host.view.widthAnchor.constraint(equalToConstant: targetWidth)
+            c.isActive = true
+            widthConstraint = c
+        }
+
+        // ---- HEIGHT ----
+        // We always measure height, even if width is fixed
+        let measuredHeight = max(fittingSize.height, minHeight)
+
+        // Do not let the banner become shorter than the tallest value reached so far
+        let finalHeight = max(measuredHeight, lastMeasuredHeight)
+        lastMeasuredHeight = finalHeight
+
+        if let heightConstraint {
+            if abs(heightConstraint.constant - finalHeight) > 0.5 {
+                heightConstraint.constant = finalHeight
+            }
+        } else {
+            let c = host.view.heightAnchor.constraint(greaterThanOrEqualToConstant: finalHeight)
+            c.isActive = true
+            heightConstraint = c
         }
 
         if animated {
-            UIView.animate(withDuration: 0.20) { window.layoutIfNeeded() }
+            UIView.animate(withDuration: 0.20) {
+                window.layoutIfNeeded()
+            }
         } else {
-            UIView.performWithoutAnimation { window.layoutIfNeeded() }
+            UIView.performWithoutAnimation {
+                window.layoutIfNeeded()
+            }
         }
     }
 
