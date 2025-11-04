@@ -53,6 +53,14 @@ internal final class LucidBannerWindow: UIWindow {
     var isPassthrough: Bool = true
     weak var hitTargetView: UIView?
 
+    // Called whenever window lays out subviews (e.g. on rotation)
+    var onLayoutChange: (() -> Void)?
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        onLayoutChange?()
+    }
+
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
         guard isPassthrough else {
             return super.hitTest(point, with: event)
@@ -573,6 +581,12 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         self.window = window
         self.hostController = host
         self.scrimView = scrim
+
+        window.onLayoutChange = { [weak self] in
+            guard let self else { return }
+            // Recalculate with the new window size
+            self.remeasureAndSetWidthConstraint(animated: false, force: true)
+        }
 
         if let width = fixedWidth {
             let c = host.view.widthAnchor.constraint(equalToConstant: width)

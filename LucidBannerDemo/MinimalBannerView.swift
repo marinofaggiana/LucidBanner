@@ -11,8 +11,10 @@ struct MinimalBannerView: View {
                     .imageScale(.large)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(state.title.isEmpty ? " " : state.title)
-                    .font(.headline)
+                if let title = state.title {
+                    Text(title)
+                        .font(.headline)
+                }
                 if let subtitle = state.subtitle {
                     Text(subtitle)
                         .font(.subheadline)
