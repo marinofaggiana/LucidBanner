@@ -639,7 +639,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
         // Ask SwiftUI how big it wants to be for this width
         let fittingSize = host.sizeThatFits(
-            in: CGSize(width: widthCap, height: UIView.layoutFittingCompressedSize.height)
+            in: CGSize(width: widthCap, height: CGFloat.greatestFiniteMagnitude)
         )
 
         // ---- WIDTH ----
