@@ -643,68 +643,66 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     private func remeasureAndSetWidthConstraint(animated: Bool, force: Bool) {
         guard let window, let host = hostController else { return }
 
-        // If the banner is still animating in and we are not forcing, defer the layout
+        // during initial animation, skip unless forced
         if isAnimatingIn && lockWidthUntilSettled && !force {
             pendingRelayout = true
             return
         }
 
-        // Mark measuring on state (in case the SwiftUI view wants to react)
         state.flags["measuring"] = true
-        defer {
-            state.flags["measuring"] = false
-        }
+        defer { state.flags["measuring"] = false }
 
-        // Make sure SwiftUI view is laid out before measuring
         host.view.setNeedsLayout()
         host.view.layoutIfNeeded()
 
-        // Compute available width inside window margins
+        // available width in current orientation
         let availableWidth = window.bounds.width - (horizontalMargin * 2)
         let widthCap = min(max(0, availableWidth), maxWidth)
 
-        // Ask SwiftUI how big it wants to be for this width
+        // give SwiftUI vertical room so text can wrap
         let fittingSize = host.sizeThatFits(
-            in: CGSize(width: widthCap, height: CGFloat.greatestFiniteMagnitude)
+            in: CGSize(width: widthCap, height: .greatestFiniteMagnitude)
         )
 
         // ---- WIDTH ----
         let targetWidth: CGFloat
         if let fixedWidth {
-            // Honor fixed width but clamp to screen width
             targetWidth = min(fixedWidth, widthCap)
         } else {
-            // Clamp to min/max and available width
             targetWidth = min(max(fittingSize.width, minWidth), widthCap)
         }
 
-        if let widthConstraint {
-            let current = widthConstraint.constant
-            // If force == true, accept both grow and shrink; otherwise only grow
-            let newWidth = force ? targetWidth : max(targetWidth, current)
-            if abs(newWidth - current) > 0.5 {
-                widthConstraint.constant = newWidth
+        if force {
+            // on rotation or explicit force we recreate the width constraint
+            if let old = widthConstraint {
+                old.isActive = false
             }
-        } else {
             let c = host.view.widthAnchor.constraint(equalToConstant: targetWidth)
             c.isActive = true
             widthConstraint = c
+        } else {
+            if let widthConstraint {
+                let current = widthConstraint.constant
+                let newWidth = max(targetWidth, current)
+                if abs(newWidth - current) > 0.5 {
+                    widthConstraint.constant = newWidth
+                }
+            } else {
+                let c = host.view.widthAnchor.constraint(equalToConstant: targetWidth)
+                c.isActive = true
+                widthConstraint = c
+            }
         }
 
         // ---- HEIGHT ----
-        // We always measure height, even if width is fixed
-        let measuredHeight = max(fittingSize.height, minHeight)
-
-        // Do not let the banner become shorter than the tallest value reached so far
-        let finalHeight = max(measuredHeight, lastMeasuredHeight)
-        lastMeasuredHeight = finalHeight
+        let targetHeight = max(fittingSize.height, minHeight)
 
         if let heightConstraint {
-            if abs(heightConstraint.constant - finalHeight) > 0.5 {
-                heightConstraint.constant = finalHeight
+            if abs(heightConstraint.constant - targetHeight) > 0.5 {
+                heightConstraint.constant = targetHeight
             }
         } else {
-            let c = host.view.heightAnchor.constraint(greaterThanOrEqualToConstant: finalHeight)
+            let c = host.view.heightAnchor.constraint(greaterThanOrEqualToConstant: targetHeight)
             c.isActive = true
             heightConstraint = c
         }
