@@ -128,6 +128,10 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     private let minHeight: CGFloat = 44
     private var fixedWidth: CGFloat?
 
+    // Keeps track of the last layout-affecting combination of content.
+    // Used to avoid redundant size recalculations.
+    private var lastLayoutSignature: String = ""
+
     // Position
     private var vPosition: VerticalPosition = .top
     private var hAlignment: HorizontalAlignment = .center
@@ -295,18 +299,10 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             return
         }
 
-        // Snapshot for change detection
-        let oldTitle = state.title
-        let oldSubTitle = state.subtitle
-        let oldFootNote = state.footnote
-        let oldImage = state.systemImage
-        let oldAnim = state.imageAnimation
-        let oldStage = state.stage
-
-        // Normalize and apply text
+        // Apply updates
         if let title {
             let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
-            state.title = t.isEmpty ? "" : t
+            state.title = t.isEmpty ? nil : t
         }
         if let subtitle {
             let s = subtitle.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -316,22 +312,17 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             let f = footnote.trimmingCharacters(in: .whitespacesAndNewlines)
             state.footnote = f.isEmpty ? nil : f
         }
-
-        // Icon/animation
         if let systemImage {
             state.systemImage = systemImage
         }
         if let imageAnimation {
             state.imageAnimation = imageAnimation
         }
-
-        // Progress
         if let progress {
-            let c = max(0, min(1, progress))
-            state.progress = (c > 0) ? c : nil
+            // Clamp and decide visibility
+            let clamped = max(0, min(1, progress))
+            state.progress = clamped > 0 ? clamped : nil
         }
-
-        // Stage & tap
         if let stage {
             state.stage = stage
         }
@@ -339,22 +330,25 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             self.onTapWithContext = onTapWithContext
         }
 
-        // Change detection for revision & layout
-        let textChanged = (oldTitle != state.title) || (oldSubTitle != state.subtitle) || (oldFootNote != state.footnote)
-        let imageChanged = (oldImage != state.systemImage) || (oldAnim != state.imageAnimation)
-        let stageChanged = (oldStage != state.stage)
+        // Build layout-sensitive signature
+        let progressVisible = (state.progress ?? 0) > 0
+        let layoutSignature = [
+            state.title ?? "",
+            state.subtitle ?? "",
+            state.footnote ?? "",
+            state.systemImage ?? "",
+            progressVisible ? "prog-on" : "prog-off"
+        ].joined(separator: "|")
 
-        if textChanged || imageChanged || stageChanged {
+        if layoutSignature != lastLayoutSignature {
+            lastLayoutSignature = layoutSignature
             revisionForVisible &+= 1
-        }
 
-        hostController?.view.invalidateIntrinsicContentSize()
-
-        if textChanged || imageChanged {
             if isAnimatingIn && lockWidthUntilSettled && fixedWidth == nil {
                 pendingRelayout = true
             } else {
-                remeasureAndSetWidthConstraint(animated: true, force: false)
+                // Force = allow grow and shrink because view structure actually changed
+                remeasureAndSetWidthConstraint(animated: true, force: true)
             }
         } else {
             if let window {
