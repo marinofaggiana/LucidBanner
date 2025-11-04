@@ -643,18 +643,22 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     private func remeasureAndSetWidthConstraint(animated: Bool, force: Bool) {
         guard let window, let host = hostController else { return }
 
-        // skip during initial animation unless forced
+        // Skip while animating in, unless we explicitly force a relayout (e.g. rotation)
         if isAnimatingIn && lockWidthUntilSettled && !force {
             pendingRelayout = true
             return
         }
 
+        // Mark measuring (in case the SwiftUI view reacts to this flag)
         state.flags["measuring"] = true
         defer { state.flags["measuring"] = false }
 
-        // available width in current window
-        let availableWidth = window.bounds.width - (horizontalMargin * 2)
-        let widthCap = min(max(0, availableWidth), maxWidth)
+        let windowWidth = window.bounds.width
+        let availableWidth = windowWidth - (horizontalMargin * 2)
+        let cappedWidth = min(availableWidth, maxWidth)
+        let widthCap = max(0, cappedWidth)
+
+        // Ask SwiftUI how big it wants to be for that width
         let fittingSize = host.sizeThatFits(
             in: CGSize(width: widthCap, height: .greatestFiniteMagnitude)
         )
@@ -662,13 +666,16 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         // ---- WIDTH ----
         let targetWidth: CGFloat
         if let fixedWidth {
+            // honor fixed width but still do not exceed our widthCap
             targetWidth = min(fixedWidth, widthCap)
         } else {
-            targetWidth = min(max(fittingSize.width, minWidth), widthCap)
+            // clamp fitting width between minWidth and widthCap (which already <= maxWidth)
+            let clamped = min(max(fittingSize.width, minWidth), widthCap)
+            targetWidth = clamped
         }
 
         if force {
-            // on rotation or explicit force we recreate the width constraint
+            // on rotation or explicit force, recreate width constraint so we drop old value
             if let old = widthConstraint {
                 old.isActive = false
             }
@@ -702,7 +709,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             heightConstraint = c
         }
 
-        // apply
         if animated {
             UIView.animate(withDuration: 0.20) {
                 window.layoutIfNeeded()
