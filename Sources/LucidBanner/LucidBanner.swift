@@ -445,31 +445,68 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             return
         }
 
+        // Track whether something that affects geometry (height/width) changed.
+        var needsRelayout = false
+
+        // --- Text fields ---
+
         if let title {
-            let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
-            state.title = t.isEmpty ? nil : t
-        }
-        if let subtitle {
-            let s = subtitle.trimmingCharacters(in: .whitespacesAndNewlines)
-            state.subtitle = s.isEmpty ? nil : s
-        }
-        if let footnote {
-            let f = footnote.trimmingCharacters(in: .whitespacesAndNewlines)
-            state.footnote = f.isEmpty ? nil : f
+            let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+            let newValue = trimmed.isEmpty ? nil : trimmed
+            if newValue != state.title {
+                needsRelayout = true
+            }
+            state.title = newValue
         }
 
+        if let subtitle {
+            let trimmed = subtitle.trimmingCharacters(in: .whitespacesAndNewlines)
+            let newValue = trimmed.isEmpty ? nil : trimmed
+            if newValue != state.subtitle {
+                needsRelayout = true
+            }
+            state.subtitle = newValue
+        }
+
+        if let footnote {
+            let trimmed = footnote.trimmingCharacters(in: .whitespacesAndNewlines)
+            let newValue = trimmed.isEmpty ? nil : trimmed
+            if newValue != state.footnote {
+                needsRelayout = true
+            }
+            state.footnote = newValue
+        }
+
+        // --- Icon & animation ---
+
         if let systemImage {
+            // La sola presenza/assenza dell'icona può influire lievemente sul layout.
+            if systemImage != state.systemImage {
+                needsRelayout = true
+            }
             state.systemImage = systemImage
         }
+
         if let imageAnimation {
             state.imageAnimation = imageAnimation
         }
 
+        // --- Progress ---
         if let progress {
             let clamped = max(0, min(1, progress))
-            state.progress = (clamped > 0) ? clamped : nil
+            let newProgress: Double? = (clamped > 0) ? clamped : nil
+
+            let oldVisible = (state.progress != nil)
+            let newVisible = (newProgress != nil)
+
+            if oldVisible != newVisible {
+                needsRelayout = true
+            }
+
+            state.progress = newProgress
         }
 
+        // --- Stage & tap callback ---
         if let stage {
             state.stage = stage
         }
@@ -479,7 +516,20 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
         revisionForVisible &+= 1
 
-        if let window {
+        guard let window = self.window else {
+            return
+        }
+
+        // --- Layout handling ---
+
+        if needsRelayout {
+            if isAnimatingIn || isDismissing || lockWidthUntilSettled {
+                pendingRelayout = true
+            } else {
+                // Ricalcola l'intrinsic size e anima la variazione di altezza.
+                remeasure(animated: true)
+            }
+        } else {
             UIView.performWithoutAnimation {
                 window.layoutIfNeeded()
             }
