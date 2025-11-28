@@ -494,16 +494,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         // --- Progress ---
         if let progress {
             let clamped = max(0, min(1, progress))
-            let newProgress: Double? = (clamped > 0) ? clamped : nil
-
-            let oldVisible = (state.progress != nil)
-            let newVisible = (newProgress != nil)
-
-            if oldVisible != newVisible {
-                needsRelayout = true
-            }
-
-            state.progress = newProgress
+            state.progress = (clamped > 0) ? clamped : nil
         }
 
         // --- Stage & tap callback ---
@@ -909,18 +900,41 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// and we want UIKit to recompute the intrinsic size of the hosted view.
     @MainActor
     private func remeasure(animated: Bool = false) {
-        guard let window, let hostView = hostController?.view else { return }
+        guard let window,
+              let hostView = hostController?.view,
+              let heightConstraint = self.heightConstraint else { return }
 
-        // Force SwiftUI view to recompute its intrinsic content size
+        // Current width of the host view is our horizontal constraint.
+        // We only want to recompute the height for THIS width.
+        hostView.layoutIfNeeded()
+        let currentWidth = max(hostView.bounds.width, 1)
+
+        // Force SwiftUI to refresh intrinsic size
         hostView.invalidateIntrinsicContentSize()
         hostView.setNeedsLayout()
-        hostView.setNeedsDisplay()
+        hostView.layoutIfNeeded()
 
-        // Critical: force UIKit/SwiftUI bridge to recalc the real fitting size
-        _ = hostView.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize)
+        let targetSize = CGSize(
+            width: currentWidth,
+            height: UIView.layoutFittingCompressedSize.height
+        )
 
-        let applyLayout = {
-            window.setNeedsLayout()
+        let fittingSize = hostView.systemLayoutSizeFitting(
+            targetSize,
+            withHorizontalFittingPriority: .required,
+            verticalFittingPriority: .fittingSizeLevel
+        )
+
+        let newHeight = max(minHeight, fittingSize.height)
+
+        // return if the difference is small
+        guard abs(newHeight - heightConstraint.constant) > 0.5 else {
+            return
+        }
+
+        heightConstraint.constant = newHeight
+
+        let animations = {
             window.layoutIfNeeded()
         }
 
@@ -929,12 +943,12 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                 withDuration: 0.22,
                 delay: 0,
                 options: [.beginFromCurrentState, .curveEaseInOut],
-                animations: applyLayout,
+                animations: animations,
                 completion: nil
             )
         } else {
             UIView.performWithoutAnimation {
-                applyLayout()
+                animations()
             }
         }
     }
