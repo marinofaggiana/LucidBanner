@@ -25,7 +25,6 @@ Author: **Marino Faggiana** • License: **MIT** • Version: **0.0.1**
   - Vertical: `.top`, `.center`, `.bottom`
   - Horizontal: `.left`, `.center`, `.right`
   - Safe-area aware margins
-  - Fixed width, min/max width or full-width modes
 - **Interaction**
   - Swipe-to-dismiss (direction-aware based on position)
   - Optional scrim that blocks touches behind the banner
