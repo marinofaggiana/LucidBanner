@@ -300,11 +300,9 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }()
 
         let normalizedProgress: Double? = {
-            guard let progress,
-                  progress > 0 else {
-                return nil
-            }
-            return progress
+            guard let progress else { return nil }
+            let clamped = max(0, min(1, progress))
+            return clamped
         }()
 
         let hasContent = normalizedTitle != nil ||
@@ -416,13 +414,13 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             state.imageAnimation = imageAnimation
         }
 
-        // Progress: layout solo quando la visibilità cambia.
         if let progress {
             let clamped = max(0, min(1, progress))
-            let newProgress: Double? = (clamped > 0) ? clamped : nil
+            let newProgress: Double? = clamped
 
             let oldVisible = (state.progress != nil)
             let newVisible = (newProgress != nil)
+
             if oldVisible != newVisible {
                 needsRelayout = true
             }
@@ -656,11 +654,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
         NSLayoutConstraint.activate(constraints)
 
-        // Initial minimal height
-        let heightConstraint = host.view.heightAnchor.constraint(equalToConstant: minHeight)
-        heightConstraint.isActive = true
-        self.heightConstraint = heightConstraint
-
         // Gestures
         window.hitTargetView = host.view
 
@@ -686,9 +679,12 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         self.hostController = host
         self.scrimView = scrim
 
-        // On rotation: re-measure con la nuova larghezza effettiva
+        // Handle rotation or other layout passes: just mark that a relayout is needed.
+        // The actual remeasure will be performed at a safe moment (e.g. after show
+        // animation or after an explicit `update(...)` that triggers it).
         window.onLayoutChange = { [weak self] in
-            self?.remeasure(animated: false)
+            guard let self else { return }
+            self.pendingRelayout = true
         }
 
         // Presentation animation (solo fade + leggero scale, niente offset che litiga con i vincoli)
@@ -729,23 +725,22 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     @MainActor
     private func remeasure(animated: Bool = false) {
         guard let window,
-              let hostView = hostController?.view,
-              let heightConstraint = self.heightConstraint else { return }
+              let hostView = hostController?.view else { return }
 
-        // Compute effective width: window width - safe area - margins
-        let windowWidth = window.bounds.width
-        let insets = LucidBanner.useSafeArea ? window.safeAreaInsets : .zero
-        let effectiveWidth = max(
-            1,
-            windowWidth - insets.left - insets.right - horizontalMargin * 2
-        )
+        if let existing = heightConstraint {
+            existing.isActive = false
+        }
+
+        let targetWidth: CGFloat = max(hostView.bounds.width, 1)
 
         hostView.invalidateIntrinsicContentSize()
         hostView.setNeedsLayout()
         hostView.layoutIfNeeded()
 
-        let targetSize = CGSize(width: effectiveWidth,
-                                height: UIView.layoutFittingCompressedSize.height)
+        let targetSize = CGSize(
+            width: targetWidth,
+            height: UIView.layoutFittingCompressedSize.height
+        )
 
         let fittingSize = hostView.systemLayoutSizeFitting(
             targetSize,
@@ -755,11 +750,17 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
         let newHeight = max(minHeight, fittingSize.height)
 
-        guard abs(newHeight - heightConstraint.constant) > 0.5 else {
-            return
+        let heightConstraint: NSLayoutConstraint
+        if let existing = self.heightConstraint {
+            existing.constant = newHeight
+            heightConstraint = existing
+        } else {
+            let created = hostView.heightAnchor.constraint(equalToConstant: newHeight)
+            self.heightConstraint = created
+            heightConstraint = created
         }
 
-        heightConstraint.constant = newHeight
+        heightConstraint.isActive = true
 
         let animations = {
             window.layoutIfNeeded()
