@@ -181,7 +181,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     // Pending payload used for queueing
     private struct PendingShow {
         let scene: UIWindowScene?
-        let width: CGFloat
         let title: String?
         let subtitle: String?
         let footnote: String?
@@ -216,13 +215,10 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     private var isAnimatingIn = false
     private var isDismissing = false
     private var pendingRelayout = false
-    private var lockWidthUntilSettled = true
 
     // Size
-    private var widthConstraint: NSLayoutConstraint?
     private var heightConstraint: NSLayoutConstraint?
     private let minHeight: CGFloat = 44
-    private var requestedWidth: CGFloat = 0
 
     // Position
     private var vPosition: VerticalPosition = .top
@@ -271,7 +267,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     ///
     /// - Parameters:
     ///   - scene: Target `UIWindowScene` where the banner window should be attached.
-    ///   - width: Desired banner width in points. If `<= 0`, an automatic width is used.
     ///   - title: Optional main title text.
     ///   - subtitle: Optional secondary text.
     ///   - footnote: Optional small footnote text.
@@ -292,7 +287,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// - Returns: A token that identifies this banner instance.
     @discardableResult
     public func show<Content: View>(scene: UIWindowScene?,
-                                    width: CGFloat,
                                     title: String? = nil,
                                     subtitle: String? = nil,
                                     footnote: String? = nil,
@@ -362,7 +356,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         // Build pending payload
         let pending = PendingShow(
             scene: scene,
-            width: width,
             title: normalizedTitle,
             subtitle: normalizedSubtitle,
             footnote: normalizedFootnote,
@@ -512,7 +505,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         // --- Layout handling ---
 
         if needsRelayout {
-            if isAnimatingIn || isDismissing || lockWidthUntilSettled {
+            if isAnimatingIn || isDismissing {
                 pendingRelayout = true
             } else {
                 // Recompute intrinsic size and animate the height change.
@@ -551,7 +544,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             hostController = nil
             self.window?.isHidden = true
             self.window = nil
-            widthConstraint = nil
             heightConstraint = nil
             completion?()
             return
@@ -584,7 +576,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             self.hostController = nil
             window.isHidden = true
             self.window = nil
-            self.widthConstraint = nil
             self.heightConstraint = nil
             self.isDismissing = false
 
@@ -614,7 +605,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
     /// Starts the presentation of a banner using the provided view factory.
     private func startShow(with viewUI: @escaping (LucidBannerState) -> AnyView) {
-        lockWidthUntilSettled = true
         isAnimatingIn = true
         pendingRelayout = false
         contentView = viewUI
@@ -626,7 +616,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     private func applyPending(_ p: PendingShow) {
         // Scene and width.
         scene = p.scene
-        requestedWidth = p.width
 
         // Text & image.
         state.title = p.title
@@ -748,49 +737,20 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             )
         }
 
-        // Horizontal alignment.
-        switch hAlignment {
-        case .center:
-            constraints.append(
-                host.view.centerXAnchor.constraint(
-                    equalTo: useSafeArea ? guide.centerXAnchor : root.centerXAnchor
-                )
-            )
-        case .left:
-            constraints.append(
-                host.view.leadingAnchor.constraint(
-                    equalTo: useSafeArea ? guide.leadingAnchor : root.leadingAnchor,
-                    constant: horizontalMargin
-                )
-            )
-        case .right:
-            constraints.append(
-                host.view.trailingAnchor.constraint(
-                    equalTo: useSafeArea ? guide.trailingAnchor : root.trailingAnchor,
-                    constant: -horizontalMargin
-                )
-            )
-        }
+        // Horizontal full-width inside safe area (or full window if disabled)
+        let leadingAnchor = useSafeArea ? guide.leadingAnchor : root.leadingAnchor
+        let trailingAnchor = useSafeArea ? guide.trailingAnchor : root.trailingAnchor
+
+        constraints.append(
+            host.view.leadingAnchor.constraint(equalTo: leadingAnchor, constant: horizontalMargin)
+        )
+        constraints.append(
+            host.view.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -horizontalMargin)
+        )
 
         NSLayoutConstraint.activate(constraints)
 
-        // --- Width & Height constraints (explicit, fixed width) ---
-        let screenWidth = scene.screen.bounds.width
-        let maxAllowedWidth = max(0, screenWidth - horizontalMargin * 2)
-
-        let baseWidth: CGFloat = {
-            if requestedWidth > 0 {
-                return min(requestedWidth, maxAllowedWidth)
-            } else {
-                // Automatic width: cap to a reasonable value and respect margins.
-                return min(420, maxAllowedWidth)
-            }
-        }()
-
-        let widthConstraint = host.view.widthAnchor.constraint(equalToConstant: baseWidth)
-        widthConstraint.isActive = true
-        self.widthConstraint = widthConstraint
-
+        // Initial minimal height
         let heightConstraint = host.view.heightAnchor.constraint(equalToConstant: minHeight)
         heightConstraint.isActive = true
         self.heightConstraint = heightConstraint
@@ -855,7 +815,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         } completion: { [weak self] _ in
             guard let self else { return }
             self.isAnimatingIn = false
-            self.lockWidthUntilSettled = false
             if self.pendingRelayout {
                 self.pendingRelayout = false
                 self.remeasure(animated: true)
@@ -872,52 +831,52 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// This is used when dynamic content changes (e.g. progress, text length)
     /// and we want UIKit to recompute the intrinsic size of the hosted view.
     @MainActor
-        private func remeasure(animated: Bool = false) {
-            guard let window,
-                  let hostView = hostController?.view,
-                  let heightConstraint = self.heightConstraint else { return }
+    private func remeasure(animated: Bool = false) {
+        guard let window,
+              let hostView = hostController?.view,
+              let heightConstraint = self.heightConstraint else { return }
 
-            let targetWidth: CGFloat = widthConstraint?.constant ?? max(hostView.bounds.width, 1)
+        let targetWidth: CGFloat = max(hostView.bounds.width, 1)
 
-            hostView.invalidateIntrinsicContentSize()
-            hostView.setNeedsLayout()
-            hostView.layoutIfNeeded()
+        hostView.invalidateIntrinsicContentSize()
+        hostView.setNeedsLayout()
+        hostView.layoutIfNeeded()
 
-            let targetSize = CGSize(width: targetWidth,
-                                    height: UIView.layoutFittingCompressedSize.height)
+        let targetSize = CGSize(width: targetWidth,
+                                height: UIView.layoutFittingCompressedSize.height)
 
-            let fittingSize = hostView.systemLayoutSizeFitting(
-                targetSize,
-                withHorizontalFittingPriority: .required,
-                verticalFittingPriority: .fittingSizeLevel
+        let fittingSize = hostView.systemLayoutSizeFitting(
+            targetSize,
+            withHorizontalFittingPriority: .required,
+            verticalFittingPriority: .fittingSizeLevel
+        )
+
+        let newHeight = max(minHeight, fittingSize.height)
+
+        guard abs(newHeight - heightConstraint.constant) > 0.5 else {
+            return
+        }
+
+        heightConstraint.constant = newHeight
+
+        let animations = {
+            window.layoutIfNeeded()
+        }
+
+        if animated {
+            UIView.animate(
+                withDuration: 0.22,
+                delay: 0,
+                options: [.beginFromCurrentState, .curveEaseInOut],
+                animations: animations,
+                completion: nil
             )
-
-            let newHeight = max(minHeight, fittingSize.height)
-
-            guard abs(newHeight - heightConstraint.constant) > 0.5 else {
-                return
-            }
-
-            heightConstraint.constant = newHeight
-
-            let animations = {
-                window.layoutIfNeeded()
-            }
-
-            if animated {
-                UIView.animate(
-                    withDuration: 0.22,
-                    delay: 0,
-                    options: [.beginFromCurrentState, .curveEaseInOut],
-                    animations: animations,
-                    completion: nil
-                )
-            } else {
-                UIView.performWithoutAnimation {
-                    animations()
-                }
+        } else {
+            UIView.performWithoutAnimation {
+                animations()
             }
         }
+    }
 
     /// Schedules automatic dismissal if `autoDismissAfter` is greater than zero.
     private func scheduleAutoDismiss() {
