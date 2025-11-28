@@ -214,11 +214,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     private var dismissTimer: Task<Void, Never>?
     private var isAnimatingIn = false
     private var isDismissing = false
-    private var pendingRelayout = false
-
-    // Size
-    private var heightConstraint: NSLayoutConstraint?
-    private let minHeight: CGFloat = 44
 
     // Position
     private var vPosition: VerticalPosition = .top
@@ -427,45 +422,29 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             return
         }
 
-        // Track whether something that affects geometry (height/width) changed.
-        var needsRelayout = false
-
         // --- Text fields ---
 
         if let title {
             let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
             let newValue = trimmed.isEmpty ? nil : trimmed
-            if newValue != state.title {
-                needsRelayout = true
-            }
             state.title = newValue
         }
 
         if let subtitle {
             let trimmed = subtitle.trimmingCharacters(in: .whitespacesAndNewlines)
             let newValue = trimmed.isEmpty ? nil : trimmed
-            if newValue != state.subtitle {
-                needsRelayout = true
-            }
             state.subtitle = newValue
         }
 
         if let footnote {
             let trimmed = footnote.trimmingCharacters(in: .whitespacesAndNewlines)
             let newValue = trimmed.isEmpty ? nil : trimmed
-            if newValue != state.footnote {
-                needsRelayout = true
-            }
             state.footnote = newValue
         }
 
         // --- Icon & animation ---
 
         if let systemImage {
-            // Presence or absence of the icon can slightly affect the layout.
-            if systemImage != state.systemImage {
-                needsRelayout = true
-            }
             state.systemImage = systemImage
         }
 
@@ -473,18 +452,10 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             state.imageAnimation = imageAnimation
         }
 
-        // Progress: do not relayout for numeric changes, only for visibility changes.
+        // Progress: only clamp and toggle visibility; SwiftUI handles layout.
         if let progress {
             let clamped = max(0, min(1, progress))
             let newProgress: Double? = (clamped > 0) ? clamped : nil
-
-            let oldVisible = (state.progress != nil)
-            let newVisible = (newProgress != nil)
-
-            if oldVisible != newVisible {
-                needsRelayout = true
-            }
-
             state.progress = newProgress
         }
 
@@ -497,25 +468,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
 
         revisionForVisible &+= 1
-
-        guard let window = self.window else {
-            return
-        }
-
-        // --- Layout handling ---
-
-        if needsRelayout {
-            if isAnimatingIn || isDismissing {
-                pendingRelayout = true
-            } else {
-                // Recompute intrinsic size and animate the height change.
-                remeasure(animated: true)
-            }
-        } else {
-            UIView.performWithoutAnimation {
-                window.layoutIfNeeded()
-            }
-        }
     }
 
     /// Returns `true` if the given token still corresponds to a visible banner.
@@ -544,7 +496,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             hostController = nil
             self.window?.isHidden = true
             self.window = nil
-            heightConstraint = nil
             completion?()
             return
         }
@@ -576,7 +527,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             self.hostController = nil
             window.isHidden = true
             self.window = nil
-            self.heightConstraint = nil
             self.isDismissing = false
 
             Task { @MainActor [weak self] in
@@ -606,7 +556,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// Starts the presentation of a banner using the provided view factory.
     private func startShow(with viewUI: @escaping (LucidBannerState) -> AnyView) {
         isAnimatingIn = true
-        pendingRelayout = false
         contentView = viewUI
         attachWindowAndPresent()
         scheduleAutoDismiss()
@@ -614,7 +563,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
     /// Applies the pending payload to the internal state and layout configuration.
     private func applyPending(_ p: PendingShow) {
-        // Scene and width.
+        // Scene
         scene = p.scene
 
         // Text & image.
@@ -750,11 +699,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
         NSLayoutConstraint.activate(constraints)
 
-        // Initial minimal height
-        let heightConstraint = host.view.heightAnchor.constraint(equalToConstant: minHeight)
-        heightConstraint.isActive = true
-        self.heightConstraint = heightConstraint
-
         // Gesture recognizers.
         window.hitTargetView = host.view
 
@@ -781,10 +725,8 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         self.hostController = host
         self.scrimView = scrim
 
-        // Handle rotation: re-measure height for the fixed width.
-        window.onLayoutChange = { [weak self] in
-            self?.remeasure(animated: false)
-        }
+        // Rotation: SwiftUI + Auto Layout will re-layout automatically.
+        window.onLayoutChange = nil
 
         // --- Presentation animation ---
         presentedVPosition = vPosition
@@ -815,66 +757,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         } completion: { [weak self] _ in
             guard let self else { return }
             self.isAnimatingIn = false
-            if self.pendingRelayout {
-                self.pendingRelayout = false
-                self.remeasure(animated: true)
-            } else {
-                // Ensure we start from the correct height.
-                self.remeasure(animated: false)
-            }
-        }
-    }
-
-
-    /// Forces a re-measure of the SwiftUI content and applies a layout update.
-    ///
-    /// This is used when dynamic content changes (e.g. progress, text length)
-    /// and we want UIKit to recompute the intrinsic size of the hosted view.
-    @MainActor
-    private func remeasure(animated: Bool = false) {
-        guard let window,
-              let hostView = hostController?.view,
-              let heightConstraint = self.heightConstraint else { return }
-
-        let targetWidth: CGFloat = max(hostView.bounds.width, 1)
-
-        hostView.invalidateIntrinsicContentSize()
-        hostView.setNeedsLayout()
-        hostView.layoutIfNeeded()
-
-        let targetSize = CGSize(width: targetWidth,
-                                height: UIView.layoutFittingCompressedSize.height)
-
-        let fittingSize = hostView.systemLayoutSizeFitting(
-            targetSize,
-            withHorizontalFittingPriority: .required,
-            verticalFittingPriority: .fittingSizeLevel
-        )
-
-        let newHeight = max(minHeight, fittingSize.height)
-
-        guard abs(newHeight - heightConstraint.constant) > 0.5 else {
-            return
-        }
-
-        heightConstraint.constant = newHeight
-
-        let animations = {
-            window.layoutIfNeeded()
-        }
-
-        if animated {
-            UIView.animate(
-                withDuration: 0.22,
-                delay: 0,
-                options: [.beginFromCurrentState, .curveEaseInOut],
-                animations: animations,
-                completion: nil
-            )
-        } else {
-            UIView.performWithoutAnimation {
-                animations()
-            }
         }
     }
 
