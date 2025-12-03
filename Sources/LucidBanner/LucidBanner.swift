@@ -375,6 +375,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                        imageAnimation: LucidBanner.LucidBannerAnimationStyle? = nil,
                        progress: Double? = nil,
                        stage: String? = nil,
+                       autoDismissAfter: TimeInterval? = nil,
                        onTap: ((_ token: Int, _ stage: String?) -> Void)? = nil,
                        for token: Int? = nil) {
         guard window != nil, (token == nil || token == activeToken) else {
@@ -382,6 +383,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
 
         var needsRelayout = false
+        var shouldRescheduleAutoDismiss = false
 
         // Text
         if let title {
@@ -429,10 +431,23 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             state.progress = newProgress
         }
 
-        // Stage & tap
+        // Stage, autoDismissAfter, tap
         if let stage {
             state.stage = stage
         }
+        if let autoDismissAfter {
+            self.autoDismissAfter = autoDismissAfter
+
+            if autoDismissAfter > 0 {
+                // Enable or change auto-dismiss: reschedule timer from now
+                shouldRescheduleAutoDismiss = true
+            } else {
+                // Disable auto-dismiss (0 or negative)
+                dismissTimer?.cancel()
+                dismissTimer = nil
+            }
+        }
+
         if let onTap {
             self.onTap = onTap
         }
@@ -443,6 +458,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             return
         }
 
+        // Layout / remeasure
         if needsRelayout {
             if isAnimatingIn || isDismissing {
                 pendingRelayout = true
@@ -453,6 +469,11 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             UIView.performWithoutAnimation {
                 window.layoutIfNeeded()
             }
+        }
+
+        // Reschedule auto-dismiss if needed
+        if shouldRescheduleAutoDismiss {
+            scheduleAutoDismiss()
         }
     }
 
