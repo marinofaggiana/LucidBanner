@@ -350,7 +350,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                 return activeToken
             case .enqueue:
                 queue.append(pending)
-                return activeToken
+                return newToken
             case .replace:
                 queue.removeAll()
                 queue.append(pending)
