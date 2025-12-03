@@ -229,7 +229,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
     // Queue
     private var queue: [PendingShow] = []
-    private var cancelledTokens: Set<Int> = []
 
     // Gestures
     private var interactionUnlockTime: CFTimeInterval = 0
@@ -462,16 +461,24 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
     // MARK: - Dismiss
 
+    @MainActor
     public func dismiss(completion: (() -> Void)? = nil) {
+        // Cancel any pending auto-dismiss timer
         dismissTimer?.cancel()
         dismissTimer = nil
 
+        // If there is no active window, just clean up and exit.
         guard let window,
               let hostView = hostController?.view else {
             hostController = nil
             self.window?.isHidden = true
             self.window = nil
             heightConstraint = nil
+            completion?()
+            return
+        }
+
+        if isDismissing {
             completion?()
             return
         }
@@ -488,9 +495,11 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             }
         }()
 
-        UIView.animate(withDuration: 0.35,
-                       delay: 0,
-                       options: [.curveEaseIn, .beginFromCurrentState]) { [weak self] in
+        UIView.animate(
+            withDuration: 0.35,
+            delay: 0,
+            options: [.curveEaseIn, .beginFromCurrentState]
+        ) { [weak self] in
             guard let self else { return }
             hostView.alpha = 0
             hostView.transform = (self.presentedVPosition == .center)
@@ -500,37 +509,17 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             self.window?.layoutIfNeeded()
         } completion: { [weak self] _ in
             guard let self else { return }
+
+            // Cleanup current window
             self.hostController = nil
             window.isHidden = true
             self.window = nil
             self.heightConstraint = nil
             self.isDismissing = false
 
-            Task { @MainActor [weak self] in
-                try? await Task.sleep(nanoseconds: 250_000_000)
-                guard let self else { return }
-                if self.window == nil, !self.isDismissing {
-                    self.dequeueAndStartIfNeeded()
-                }
-                completion?()
-            }
-        }
-    }
-
-    public func dismiss(for token: Int, completion: (() -> Void)? = nil) {
-        if token == activeToken {
-            dismiss(completion: completion)
-            return
-        }
-
-        if let index = queue.firstIndex(where: { $0.token == token }) {
-            queue.remove(at: index)
+            self.dequeueAndStartIfNeeded()
             completion?()
-            return
         }
-
-        // Mark it as cancelled so that if it ever gets dequeued, it will be skipped.
-        cancelledTokens.insert(token)
     }
 
     // MARK: - Internals
@@ -567,27 +556,20 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         revisionForVisible = 0
     }
 
+    @MainActor
     private func dequeueAndStartIfNeeded() {
+        // Do not start a new banner while we are already showing or dismissing one,
+        // or if a banner window is still attached.
         guard !isAnimatingIn, !isDismissing, window == nil else { return }
         guard !queue.isEmpty else { return }
 
         let next = queue.removeFirst()
-
-        if cancelledTokens.contains(next.token) {
-            cancelledTokens.remove(next.token)
-            dequeueAndStartIfNeeded()
-            return
-        }
-
         isAnimatingIn = true
         activeToken = next.token
 
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            self.applyPending(next)
-            self.presentedVPosition = next.vPosition
-            self.startShow(with: next.viewUI)
-        }
+        applyPending(next)
+        presentedVPosition = next.vPosition
+        startShow(with: next.viewUI)
     }
 
     private func attachWindowAndPresent() {
@@ -800,15 +782,23 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
     }
 
+    @MainActor
     private func scheduleAutoDismiss() {
         dismissTimer?.cancel()
+
         let seconds = autoDismissAfter
         guard seconds > 0 else { return }
+
         let tokenAtSchedule = activeToken
 
         dismissTimer = Task { [weak self] in
             try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
-            self?.dismiss(for: tokenAtSchedule)
+
+            await MainActor.run {
+                guard let self else { return }
+                guard self.activeToken == tokenAtSchedule else { return }
+                self.dismiss()
+            }
         }
     }
 
@@ -854,6 +844,8 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
     @objc private func handlePanGesture(_ g: UIPanGestureRecognizer) {
         guard let view = hostController?.view else { return }
+
+        // Prevent interaction for a very short time after show animation
         if CACurrentMediaTime() < interactionUnlockTime { return }
 
         let dy = g.translation(in: view).y
@@ -861,10 +853,13 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         func applyTransform(for y: CGFloat) {
             switch presentedVPosition {
             case .top:
+                // Dragging up (negative) moves the banner further up
                 view.transform = CGAffineTransform(translationX: 0, y: min(0, y))
             case .bottom:
+                // Dragging down (positive) moves the banner further down
                 view.transform = CGAffineTransform(translationX: 0, y: max(0, y))
             case .center:
+                // For center placement, allow a small vertical offset and scale
                 let t = max(-80, min(80, y))
                 let s = max(0.9, 1.0 - abs(t) / 800.0)
                 view.transform = CGAffineTransform(translationX: 0, y: t).scaledBy(x: s, y: s)
@@ -875,8 +870,10 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         case .changed:
             applyTransform(for: dy)
             view.alpha = max(0.4, 1.0 - abs(view.transform.ty) / 120.0)
+
         case .ended, .cancelled:
             let vy = g.velocity(in: view).y
+
             let shouldDismiss: Bool = {
                 switch presentedVPosition {
                 case .top:
@@ -889,17 +886,20 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             }()
 
             if shouldDismiss {
-                dismiss(for: activeToken)
+                dismiss()
             } else {
-                UIView.animate(withDuration: 0.25,
-                               delay: 0,
-                               usingSpringWithDamping: 0.85,
-                               initialSpringVelocity: 0.5,
-                               options: [.curveEaseOut, .beginFromCurrentState]) {
+                UIView.animate(
+                    withDuration: 0.25,
+                    delay: 0,
+                    usingSpringWithDamping: 0.85,
+                    initialSpringVelocity: 0.5,
+                    options: [.curveEaseOut, .beginFromCurrentState]
+                ) {
                     view.alpha = 1
                     view.transform = .identity
                 }
             }
+
         default:
             break
         }
