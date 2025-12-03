@@ -229,6 +229,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
     // Queue
     private var queue: [PendingShow] = []
+    private var cancelledTokens: Set<Int> = []
 
     // Gestures
     private var interactionUnlockTime: CFTimeInterval = 0
@@ -517,8 +518,19 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     }
 
     public func dismiss(for token: Int, completion: (() -> Void)? = nil) {
-        guard token == activeToken else { return }
-        dismiss(completion: completion)
+        if token == activeToken {
+            dismiss(completion: completion)
+            return
+        }
+
+        if let index = queue.firstIndex(where: { $0.token == token }) {
+            queue.remove(at: index)
+            completion?()
+            return
+        }
+
+        // Mark it as cancelled so that if it ever gets dequeued, it will be skipped.
+        cancelledTokens.insert(token)
     }
 
     // MARK: - Internals
@@ -560,6 +572,13 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         guard !queue.isEmpty else { return }
 
         let next = queue.removeFirst()
+
+        if cancelledTokens.contains(next.token) {
+            cancelledTokens.remove(next.token)
+            dequeueAndStartIfNeeded()
+            return
+        }
+
         isAnimatingIn = true
         activeToken = next.token
 
