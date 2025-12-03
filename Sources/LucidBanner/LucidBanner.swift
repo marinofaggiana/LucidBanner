@@ -215,6 +215,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     private var isAnimatingIn = false
     private var isDismissing = false
     private var pendingRelayout = false
+    private var pendingDismiss = false
 
     // Size
     private var heightConstraint: NSLayoutConstraint?
@@ -463,11 +464,11 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
     @MainActor
     public func dismiss(completion: (() -> Void)? = nil) {
-        // Cancel any pending auto-dismiss timer
+        // Cancel auto-dismiss timer
         dismissTimer?.cancel()
         dismissTimer = nil
 
-        // If there is no active window, just clean up and exit.
+        // If there is NO active banner window → nothing to animate, cleanup and exit
         guard let window,
               let hostView = hostController?.view else {
             hostController = nil
@@ -478,14 +479,20 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             return
         }
 
+        // If we are ALREADY dismissing → record the request and EXIT.
+        // The next dismiss will be executed immediately after the current finishes.
         if isDismissing {
+            pendingDismiss = true
             completion?()
             return
         }
 
+        // Start dismissing this banner
+        isDismissing = true
+        pendingDismiss = false     // reset “future close” flag for a clean cycle
+
         hostView.isUserInteractionEnabled = false
         panGestureRef?.isEnabled = false
-        isDismissing = true
 
         let offsetY: CGFloat = {
             switch presentedVPosition {
@@ -510,12 +517,22 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         } completion: { [weak self] _ in
             guard let self else { return }
 
-            // Cleanup current window
+            // Cleanup window for this banner
             self.hostController = nil
             window.isHidden = true
             self.window = nil
             self.heightConstraint = nil
             self.isDismissing = false
+
+            // if a second dismiss arrived DURING animation
+            // close the *next* banner immediately, without showing it fully
+            if self.pendingDismiss {
+                self.pendingDismiss = false
+                self.dequeueAndStartIfNeeded()
+                // Dismiss again immediately (this will consume the next queued banner)
+                self.dismiss(completion: completion)
+                return
+            }
 
             self.dequeueAndStartIfNeeded()
             completion?()
