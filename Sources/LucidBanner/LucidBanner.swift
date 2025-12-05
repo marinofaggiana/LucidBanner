@@ -179,6 +179,44 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         case right
     }
 
+    /// Semantic stage descriptor for a LucidBanner.
+    ///
+    /// Stages identify the logical state of a banner (success, error, info, …)
+    /// without relying on raw string comparisons. This improves type-safety,
+    /// avoids typos in string identifiers, and gives you a consistent way to
+    /// drive per-stage UI variants (colors, icons, animations, etc.).
+    ///
+    /// `Stage.custom(String)` allows defining arbitrary, application-specific
+    /// stages while maintaining the same typed interface everywhere.
+    public enum Stage: Equatable {
+        case success
+        case error
+        case info
+        case warning
+        case custom(String)
+
+        public var rawValue: String {
+            switch self {
+            case .success: return "success"
+            case .error:   return "error"
+            case .info:    return "info"
+            case .warning: return "warning"
+            case .custom(let value): return value
+            }
+        }
+
+        public init(rawValue: String) {
+            let lower = rawValue.lowercased()
+            switch lower {
+            case "success": self = .success
+            case "error":   self = .error
+            case "info":    self = .info
+            case "warning": self = .warning
+            default:        self = .custom(rawValue)
+            }
+        }
+    }
+
     // Pending payload used for queueing
     private struct PendingShow {
         let scene: UIWindowScene?
@@ -272,7 +310,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                                     autoDismissAfter: TimeInterval = 0,
                                     swipeToDismiss: Bool = true,
                                     blocksTouches: Bool = false,
-                                    stage: String? = nil,
+                                    stage: Stage? = nil,
                                     policy: ShowPolicy = .enqueue,
                                     onTap: ((_ token: Int, _ stage: String?) -> Void)? = nil,
                                     @ViewBuilder content: @escaping (LucidBannerState) -> Content) -> Int {
@@ -339,7 +377,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             autoDismissAfter: autoDismissAfter,
             swipeToDismiss: swipeToDismiss,
             blocksTouches: blocksTouches,
-            stage: stage,
+            stage: stage?.rawValue,
             onTap: onTap,
             viewUI: viewFactory,
             token: newToken
@@ -375,7 +413,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                        systemImage: String? = nil,
                        imageAnimation: LucidBanner.LucidBannerAnimationStyle? = nil,
                        progress: Double? = nil,
-                       stage: String? = nil,
+                       stage: Stage? = nil,
                        autoDismissAfter: TimeInterval? = nil,
                        onTap: ((_ token: Int, _ stage: String?) -> Void)? = nil,
                        for token: Int? = nil) {
@@ -434,7 +472,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
 
         // Stage, autoDismissAfter, tap
-        if let stage {
+        if let stage = stage?.rawValue {
             if stage != state.stage { needsRelayout = true }
             state.stage = stage
         }
@@ -560,6 +598,28 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
             self.dequeueAndStartIfNeeded()
             completion?()
+        }
+    }
+
+    @MainActor
+    public func dismiss(after seconds: TimeInterval) {
+        dismissTimer?.cancel()
+
+        guard seconds > 0 else {
+            dismiss()
+            return
+        }
+
+        let tokenAtSchedule = activeToken
+
+        dismissTimer = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+
+            await MainActor.run {
+                guard let self else { return }
+                guard self.activeToken == tokenAtSchedule else { return }
+                self.dismiss()
+            }
         }
     }
 
