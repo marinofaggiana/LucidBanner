@@ -434,6 +434,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
         // Stage, autoDismissAfter, tap
         if let stage {
+            if stage != state.stage { needsRelayout = true }
             state.stage = stage
         }
         if let autoDismissAfter {
