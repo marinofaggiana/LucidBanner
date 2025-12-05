@@ -564,11 +564,11 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     }
 
     @MainActor
-    public func dismiss(after seconds: TimeInterval) {
+    public func dismiss(after seconds: TimeInterval, completion: (() -> Void)? = nil) {
         dismissTimer?.cancel()
 
         guard seconds > 0 else {
-            dismiss()
+            dismiss(completion: completion)
             return
         }
 
@@ -580,7 +580,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             await MainActor.run {
                 guard let self else { return }
                 guard self.activeToken == tokenAtSchedule else { return }
-                self.dismiss()
+                self.dismiss(completion: completion)
             }
         }
     }
