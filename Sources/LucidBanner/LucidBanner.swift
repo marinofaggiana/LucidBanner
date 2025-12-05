@@ -1006,7 +1006,7 @@ public extension LucidBanner {
     }
 }
 
-extension LucidBannerState {
+public extension LucidBannerState {
     var typedStage: LucidBanner.Stage? {
         guard let stage else { return nil }
         return LucidBanner.Stage(rawValue: stage)
