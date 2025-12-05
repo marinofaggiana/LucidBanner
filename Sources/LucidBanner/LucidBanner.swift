@@ -179,44 +179,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         case right
     }
 
-    /// Semantic stage descriptor for a LucidBanner.
-    ///
-    /// Stages identify the logical state of a banner (success, error, info, …)
-    /// without relying on raw string comparisons. This improves type-safety,
-    /// avoids typos in string identifiers, and gives you a consistent way to
-    /// drive per-stage UI variants (colors, icons, animations, etc.).
-    ///
-    /// `Stage.custom(String)` allows defining arbitrary, application-specific
-    /// stages while maintaining the same typed interface everywhere.
-    public enum Stage: Equatable {
-        case success
-        case error
-        case info
-        case warning
-        case custom(String)
-
-        public var rawValue: String {
-            switch self {
-            case .success: return "success"
-            case .error:   return "error"
-            case .info:    return "info"
-            case .warning: return "warning"
-            case .custom(let value): return value
-            }
-        }
-
-        public init(rawValue: String) {
-            let lower = rawValue.lowercased()
-            switch lower {
-            case "success": self = .success
-            case "error":   self = .error
-            case "info":    self = .info
-            case "warning": self = .warning
-            default:        self = .custom(rawValue)
-            }
-        }
-    }
-
     // Pending payload used for queueing
     private struct PendingShow {
         let scene: UIWindowScene?
@@ -1009,5 +971,44 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     @objc private func handleBannerTap() {
         guard !isDismissing else { return }
         onTap?(activeToken, state.stage)
+    }
+}
+
+public extension LucidBanner {
+    /// Semantic stage descriptor for a LucidBanner.
+    enum Stage: Equatable {
+        case success
+        case error
+        case info
+        case warning
+        case custom(String)
+
+        public var rawValue: String {
+            switch self {
+            case .success: return "success"
+            case .error:   return "error"
+            case .info:    return "info"
+            case .warning: return "warning"
+            case .custom(let value): return value
+            }
+        }
+
+        public init(rawValue: String) {
+            let lower = rawValue.lowercased()
+            switch lower {
+            case "success": self = .success
+            case "error":   self = .error
+            case "info":    self = .info
+            case "warning": self = .warning
+            default:        self = .custom(rawValue)
+            }
+        }
+    }
+}
+
+extension LucidBannerState {
+    var typedStage: LucidBanner.Stage? {
+        guard let stage else { return nil }
+        return LucidBanner.Stage(rawValue: stage)
     }
 }
