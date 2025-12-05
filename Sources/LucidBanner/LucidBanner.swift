@@ -47,7 +47,7 @@ public final class LucidBannerState: ObservableObject {
     @Published public var systemImage: String?
 
     /// Current animation style applied to the icon.
-    @Published public var imageAnimation: LucidBanner.LucidBannerAnimationStyle
+    @Published public var imageAnimation: String?
 
     // MARK: - Progress
 
@@ -78,7 +78,7 @@ public final class LucidBannerState: ObservableObject {
                 subtitle: String? = nil,
                 footnote: String? = nil,
                 systemImage: String? = nil,
-                imageAnimation: LucidBanner.LucidBannerAnimationStyle,
+                imageAnimation: String? = nil,
                 progress: Double? = nil,
                 stage: String? = nil) {
         self.title = (title?.isEmpty == true) ? nil : title
@@ -151,19 +151,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         case drop
     }
 
-    /// Visual animation style for the icon inside the banner.
-    public enum LucidBannerAnimationStyle {
-        case none
-        case rotate
-        case pulse
-        case pulsebyLayer
-        case breathe
-        case bounce
-        case wiggle
-        case scale
-        case scaleUpbyLayer
-    }
-
     /// Vertical placement of the banner inside the window.
     public enum VerticalPosition {
         case top
@@ -185,7 +172,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         let subtitle: String?
         let footnote: String?
         let systemImage: String?
-        let imageAnimation: LucidBannerAnimationStyle
+        let imageAnimation: String?
         let progress: Double?
         let vPosition: VerticalPosition
         let hAlignment: HorizontalAlignment
@@ -262,7 +249,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                                     subtitle: String? = nil,
                                     footnote: String? = nil,
                                     systemImage: String? = nil,
-                                    imageAnimation: LucidBannerAnimationStyle = .none,
+                                    imageAnimation: String? = nil,
                                     progress: Double? = nil,
                                     vPosition: VerticalPosition = .top,
                                     hAlignment: HorizontalAlignment = .center,
@@ -372,7 +359,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                        subtitle: String? = nil,
                        footnote: String? = nil,
                        systemImage: String? = nil,
-                       imageAnimation: LucidBanner.LucidBannerAnimationStyle? = nil,
+                       imageAnimation: String? = nil,
                        progress: Double? = nil,
                        stage: String? = nil,
                        autoDismissAfter: TimeInterval? = nil,
