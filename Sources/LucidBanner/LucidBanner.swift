@@ -418,18 +418,23 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             state.imageAnimation = imageAnimation
         }
 
+        // Progress
         if let progress {
             let clamped = max(0, min(1, progress))
-            let newProgress: Double? = clamped
-
             let oldVisible = (state.progress != nil)
-            let newVisible = (newProgress != nil)
+            let newVisible = true
 
             if oldVisible != newVisible {
                 needsRelayout = true
             }
 
-            state.progress = newProgress
+            state.progress = clamped
+        } else {
+            let oldVisible = (state.progress != nil)
+            if oldVisible {
+                needsRelayout = true
+            }
+            state.progress = nil
         }
 
         // Stage, autoDismissAfter, tap
