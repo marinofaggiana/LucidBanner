@@ -307,15 +307,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             return clamped
         }()
 
-        let hasContent = normalizedTitle != nil ||
-                         normalizedSubtitle != nil ||
-                         normalizedFootnote != nil ||
-                         (normalizedProgress ?? 0) > 0
-
-        guard hasContent else {
-            return activeToken
-        }
-
         // Prepare view factory bound to the shared state
         let viewFactory: (LucidBannerState) -> AnyView = { s in AnyView(content(s)) }
 
