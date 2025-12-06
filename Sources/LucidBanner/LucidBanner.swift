@@ -370,25 +370,51 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
     }
 
-    public func move(toX x: CGFloat, y: CGFloat) {
+    public func currentFrameInWindow(for token: Int? = nil) -> CGRect? {
+        guard window != nil, token == nil || token == activeToken else {
+            return nil
+        }
         guard let window,
-              let hostView = hostController?.view else { return }
+              let hostView = hostController?.view else {
+            return nil
+        }
 
+        return hostView.convert(hostView.bounds, to: window)
+    }
+
+    @MainActor
+    public func move(toX x: CGFloat, y: CGFloat, for token: Int? = nil, animated: Bool = true) {
+        guard window != nil, token == nil || token == activeToken else {
+            return
+        }
+        guard let window,
+              let hostView = hostController?.view else {
+            return
+        }
+
+        // Current center in window coordinates
         let frameInWindow = hostView.convert(hostView.bounds, to: window)
         let currentCenter = CGPoint(x: frameInWindow.midX, y: frameInWindow.midY)
-        let targetCenter = CGPoint(x: x, y: y)
 
-        let dx = targetCenter.x - currentCenter.x
-        let dy = targetCenter.y - currentCenter.y
+        let dx = x - currentCenter.x
+        let dy = y - currentCenter.y
 
-        UIView.animate(
-            withDuration: 0.25,
-            delay: 0,
-            usingSpringWithDamping: 0.85,
-            initialSpringVelocity: 0.5,
-            options: [.beginFromCurrentState, .curveEaseInOut]
-        ) {
+        let apply = {
             hostView.transform = CGAffineTransform(translationX: dx, y: dy)
+        }
+
+        if animated {
+            UIView.animate(
+                withDuration: 0.25,
+                delay: 0,
+                usingSpringWithDamping: 0.85,
+                initialSpringVelocity: 0.5,
+                options: [.beginFromCurrentState, .curveEaseInOut],
+                animations: apply,
+                completion: nil
+            )
+        } else {
+            apply()
         }
     }
 
