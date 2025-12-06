@@ -195,6 +195,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         let autoDismissAfter: TimeInterval
         let swipeToDismiss: Bool
         let blocksTouches: Bool
+        let isDraggable: Bool
         let stage: String?
         let onTap: ((_ token: Int, _ stage: String?) -> Void)?
         let viewUI: (LucidBannerState) -> AnyView
@@ -235,6 +236,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     // Gestures
     private var interactionUnlockTime: CFTimeInterval = 0
     private weak var panGestureRef: UIPanGestureRecognizer?
+    private var dragStartTransform: CGAffineTransform = .identity
 
     /// Shared observable state injected into the SwiftUI banner content.
     let state = LucidBannerState(title: nil,
@@ -248,6 +250,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     // Config
     private var swipeToDismiss = true
     private var autoDismissAfter: TimeInterval = 0
+    private var isDraggable: Bool = false
 
     // Token/revision
     private var generation: Int = 0
@@ -272,6 +275,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                                     autoDismissAfter: TimeInterval = 0,
                                     swipeToDismiss: Bool = true,
                                     blocksTouches: Bool = false,
+                                    draggable: Bool = false,
                                     stage: Stage? = nil,
                                     policy: ShowPolicy = .enqueue,
                                     onTap: ((_ token: Int, _ stage: String?) -> Void)? = nil,
@@ -330,6 +334,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             autoDismissAfter: autoDismissAfter,
             swipeToDismiss: swipeToDismiss,
             blocksTouches: blocksTouches,
+            isDraggable: draggable,
             stage: stage?.rawValue,
             onTap: onTap,
             viewUI: viewFactory,
@@ -604,6 +609,9 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         horizontalMargin = p.horizontalMargin
         verticalMargin = p.verticalMargin
         blocksTouches = p.blocksTouches
+        isDraggable = p.isDraggable && !p.blocksTouches
+
+        // If touches are blocked, swipeToDismiss is forced off
         swipeToDismiss = p.blocksTouches ? false : p.swipeToDismiss
 
         onTap = p.onTap
@@ -712,7 +720,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         // Gestures
         window.hitTargetView = host.view
 
-        if swipeToDismiss {
+        if swipeToDismiss || isDraggable {
             let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePanGesture(_:)))
             pan.cancelsTouchesInView = false
             pan.delegate = self
@@ -881,6 +889,11 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     public func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         if CACurrentMediaTime() < interactionUnlockTime { return false }
 
+        // In draggable mode, always allow the pan to begin when touching inside the banner.
+        if isDraggable, gestureRecognizer is UIPanGestureRecognizer {
+            return true
+        }
+
         if let pan = gestureRecognizer as? UIPanGestureRecognizer, let view = pan.view {
             let velocityY = pan.velocity(in: view).y
             switch presentedVPosition {
@@ -902,7 +915,41 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         // Prevent interaction for a very short time after show animation
         if CACurrentMediaTime() < interactionUnlockTime { return }
 
-        let dy = g.translation(in: view).y
+        let translation = g.translation(in: view)
+
+        // DRAG MODE: pan repositions the banner instead of dismissing it.
+        if isDraggable {
+            switch g.state {
+            case .began:
+                // Store the starting transform so we can apply deltas on top of it.
+                dragStartTransform = view.transform
+
+            case .changed:
+                // Apply translation relative to the starting transform to avoid cumulative drift.
+                let transform = dragStartTransform.translatedBy(x: translation.x, y: translation.y)
+                view.transform = transform
+                view.alpha = 1.0
+
+            case .ended, .cancelled:
+                // Small spring to "settle" visually, but keep the final position.
+                UIView.animate(
+                    withDuration: 0.25,
+                    delay: 0,
+                    usingSpringWithDamping: 0.85,
+                    initialSpringVelocity: 0.5,
+                    options: [.curveEaseOut, .beginFromCurrentState]
+                ) {
+                    view.alpha = 1.0
+                }
+
+            default:
+                break
+            }
+            return
+        }
+
+        // DISMISS MODE: original swipe-to-dismiss behavior.
+        let dy = translation.y
 
         func applyTransform(for y: CGFloat) {
             switch presentedVPosition {
