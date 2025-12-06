@@ -12,8 +12,8 @@
 
 import Foundation
 
+/// Semantic stage descriptor for a LucidBanner.
 public extension LucidBanner {
-    /// Semantic stage descriptor for a LucidBanner.
     enum Stage: Equatable {
         case success
         case error
