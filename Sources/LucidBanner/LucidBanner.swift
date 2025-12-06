@@ -97,7 +97,6 @@ public final class LucidBannerState: ObservableObject {
 ///
 /// It can optionally forward touch events to the underlying app (passthrough mode)
 /// while still hosting the banner content on top of everything else.
-@MainActor
 internal final class LucidBannerWindow: UIWindow {
     /// When `true`, the window is mostly passthrough and forwards hits to `hitTargetView`.
     var isPassthrough: Bool = true
@@ -133,7 +132,6 @@ internal final class LucidBannerWindow: UIWindow {
 /// The manager owns a single shared `LucidBannerState` instance that is injected into
 /// the SwiftUI content. Only one banner window is visible at a time, but multiple
 /// requests can be queued according to the selected `ShowPolicy`.
-@MainActor
 public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// Shared singleton instance.
     public static let shared = LucidBanner()
@@ -364,7 +362,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         return newToken
     }
 
-    @MainActor
     public func update(title: String? = nil,
                        subtitle: String? = nil,
                        footnote: String? = nil,
@@ -476,13 +473,16 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
     }
 
+    public func requestRelayout() {
+        remeasure(animated: true)
+    }
+
     public func isAlive(_ token: Int) -> Bool {
         token == activeToken && window != nil
     }
 
     // MARK: - Dismiss
 
-    @MainActor
     public func dismiss(completion: (() -> Void)? = nil) {
         // Cancel auto-dismiss timer
         dismissTimer?.cancel()
@@ -559,7 +559,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
     }
 
-    @MainActor
     public func dismiss(after seconds: TimeInterval, completion: (() -> Void)? = nil) {
         dismissTimer?.cancel()
 
@@ -618,7 +617,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         revisionForVisible = 0
     }
 
-    @MainActor
     private func dequeueAndStartIfNeeded() {
         // Do not start a new banner while we are already showing or dismissing one,
         // or if a banner window is still attached.
@@ -785,7 +783,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// Uses the actual window width minus safe area and horizontal margins
     /// to compute a stable height, so dynamic content (like progress) can
     /// grow/shrink without breaking vertical positioning.
-    @MainActor
     private func remeasure(animated: Bool = false) {
         guard let window,
               let hostView = hostController?.view else { return }
@@ -844,7 +841,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
     }
 
-    @MainActor
     private func scheduleAutoDismiss() {
         dismissTimer?.cancel()
 
