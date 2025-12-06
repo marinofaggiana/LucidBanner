@@ -2,7 +2,9 @@
 ![Platform](https://img.shields.io/badge/platform-iOS_17+-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-# LucidBanner
+<div align="center">
+    <img src="LucidBanner_1024.png" alt="Logo of LucidBanner" width="256" height="256" />
+</div>
 
 SwiftUI-based transient banners rendered in their own `UIWindow` above the status bar.
 
