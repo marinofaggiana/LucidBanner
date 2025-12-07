@@ -154,9 +154,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     private var revisionForVisible: Int = 0
     private var onTap: ((_ token: Int, _ stage: String?) -> Void)?
 
-    // Minimized icon geometry (optional, advanced usage)
-    private var minimizedIconCenterInWindow: CGPoint?
-
     // MARK: - Public API
 
     /// Presents a new Lucid banner in the specified scene.
@@ -505,40 +502,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
 
         return hostView.convert(hostView.bounds, to: window)
-    }
-
-    /// Stores the center point of the minimized icon in window coordinates.
-    ///
-    /// This is intended for advanced minimize/restore flows where the host
-    /// application coordinates custom animations (e.g. docking the minimized
-    /// banner next to a bar button item). LucidBanner does not interpret or
-    /// animate this value by itself.
-    ///
-    /// - Parameters:
-    ///   - point: The icon center in the window’s coordinate space, or `nil`
-    ///            to clear the previously stored value.
-    ///   - token: Optional banner token used to ensure the value applies to
-    ///            the currently visible banner. If provided and it does not
-    ///            match the active token, the call is ignored.
-    public func setMinimizedIconCenter(_ point: CGPoint?, for token: Int? = nil) {
-        guard token == nil || token == activeToken else { return }
-        minimizedIconCenterInWindow = point
-    }
-
-    /// Returns the last stored center point of the minimized icon in
-    /// window coordinates, if any.
-    ///
-    /// This value is only updated when the host app calls
-    /// `setMinimizedIconCenter(_:for:)`. It is never inferred or animated
-    /// by LucidBanner automatically.
-    ///
-    /// - Parameter token: Optional banner token used to validate that the
-    ///   value belongs to the currently visible banner.
-    /// - Returns: The stored center point, or `nil` if none is available
-    ///   or the token does not match the active banner.
-    public func minimizedIconCenter(for token: Int? = nil) -> CGPoint? {
-        guard token == nil || token == activeToken else { return nil }
-        return minimizedIconCenterInWindow
     }
 
     /// Returns the underlying UIKit host view for the currently visible banner.
