@@ -22,7 +22,6 @@
 
 import SwiftUI
 import UIKit
-import Combine
 
 /// Global manager responsible for showing, updating and dismissing Lucid banners.
 ///
@@ -105,7 +104,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     private var scene: UIWindowScene?
     private var blocksTouches = false
     private var window: LucidBannerWindow?
-    private weak var scrimView: UIControl?
     private var hostController: UIHostingController<AnyView>?
 
     // Timers/flags
@@ -151,7 +149,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     // Token/revision
     private var generation: Int = 0
     private var activeToken: Int = 0
-    private var revisionForVisible: Int = 0
     private var onTap: ((_ token: Int, _ stage: String?) -> Void)?
 
     // MARK: - Public API
@@ -214,7 +211,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         let normalizedSubtitle: String? = {
             guard let text = subtitle?.trimmingCharacters(in: .whitespacesAndNewlines),
                   !text.isEmpty else {
-            return nil
+                return nil
             }
             return text
         }()
@@ -387,8 +384,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         if let onTap {
             self.onTap = onTap
         }
-
-        revisionForVisible &+= 1
 
         guard let window = self.window else {
             return
@@ -701,7 +696,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         swipeToDismiss = p.blocksTouches ? false : p.swipeToDismiss
 
         onTap = p.onTap
-        revisionForVisible = 0
     }
 
     /// Dequeues the next banner (if any) and starts its presentation,
@@ -829,7 +823,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
         self.window = window
         self.hostController = host
-        self.scrimView = scrim
 
         // Handle rotation or other layout passes: just mark that a relayout is needed.
         // The actual remeasure will be performed at a safe moment (e.g. after show
@@ -1081,41 +1074,41 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
 
         switch g.state {
-        case .changed:
-            applyTransform(for: dy)
-            view.alpha = max(0.4, 1.0 - abs(view.transform.ty) / 120.0)
+            case .changed:
+                applyTransform(for: dy)
+                view.alpha = max(0.4, 1.0 - abs(view.transform.ty) / 120.0)
 
-        case .ended, .cancelled:
-            let vy = g.velocity(in: view).y
+            case .ended, .cancelled:
+                let vy = g.velocity(in: view).y
 
-            let shouldDismiss: Bool = {
-                switch presentedVPosition {
-                case .top:
-                    return (dy < -30) || (vy < -500)
-                case .bottom:
-                    return (dy > 30) || (vy > 500)
-                case .center:
-                    return abs(dy) > 40 || abs(vy) > 600
+                let shouldDismiss: Bool = {
+                    switch presentedVPosition {
+                    case .top:
+                        return (dy < -30) || (vy < -500)
+                    case .bottom:
+                        return (dy > 30) || (vy > 500)
+                    case .center:
+                        return abs(dy) > 40 || abs(vy) > 600
+                    }
+                }()
+
+                if shouldDismiss {
+                    dismiss()
+                } else {
+                    UIView.animate(
+                        withDuration: 0.25,
+                        delay: 0,
+                        usingSpringWithDamping: 0.85,
+                        initialSpringVelocity: 0.5,
+                        options: [.curveEaseOut, .beginFromCurrentState]
+                    ) {
+                        view.alpha = 1
+                        view.transform = .identity
+                    }
                 }
-            }()
 
-            if shouldDismiss {
-                dismiss()
-            } else {
-                UIView.animate(
-                    withDuration: 0.25,
-                    delay: 0,
-                    usingSpringWithDamping: 0.85,
-                    initialSpringVelocity: 0.5,
-                    options: [.curveEaseOut, .beginFromCurrentState]
-                ) {
-                    view.alpha = 1
-                    view.transform = .identity
-                }
-            }
-
-        default:
-            break
+            default:
+                break
         }
     }
 
