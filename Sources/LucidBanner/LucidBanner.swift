@@ -675,12 +675,13 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     private func applyPending(_ p: PendingShow) {
         scene = p.scene
 
+        // Reset layout-related flags so each banner starts clean
+        state.isMinimized = false
         state.title = p.title
         state.subtitle = p.subtitle
         state.footnote = p.footnote
         state.systemImage = p.systemImage
         state.imageAnimation = p.imageAnimation
-
         state.progress = p.progress
         state.stage = p.stage
 

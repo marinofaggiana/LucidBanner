@@ -51,10 +51,6 @@ open class LucidBannerState: ObservableObject {
     /// Used for external logic, analytics or styling decisions.
     @Published public var stage: String?
 
-    /// Arbitrary key–value storage for advanced scenarios.
-    /// LucidBanner does not interpret these values.
-    @Published public var flags: [String: Any] = [:]
-
     /// Indicates whether the SwiftUI layout should render the banner
     /// in a compact, minimized form. The library does not enforce any
     /// visual style; the SwiftUI content decides how to react.
