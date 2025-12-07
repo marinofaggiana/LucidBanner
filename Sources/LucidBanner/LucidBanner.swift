@@ -142,7 +142,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                                  stage: nil)
 
     // Config
-    private var swipeToDismiss = true
+    private var swipeToDismiss = false
     private var autoDismissAfter: TimeInterval = 0
     private var isDraggable: Bool = false
 
@@ -187,12 +187,12 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                                     systemImage: String? = nil,
                                     imageAnimation: LucidBannerAnimationStyle = .none,
                                     progress: Double? = nil,
-                                    vPosition: VerticalPosition = .top,
+                                    vPosition: VerticalPosition = .center,
                                     hAlignment: HorizontalAlignment = .center,
                                     horizontalMargin: CGFloat = 12,
                                     verticalMargin: CGFloat = 10,
                                     autoDismissAfter: TimeInterval = 0,
-                                    swipeToDismiss: Bool = true,
+                                    swipeToDismiss: Bool = false,
                                     blocksTouches: Bool = false,
                                     draggable: Bool = false,
                                     stage: Stage? = nil,
