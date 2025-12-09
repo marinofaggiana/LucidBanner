@@ -626,6 +626,14 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
     }
 
+    public func dismissAsync() async {
+        await withCheckedContinuation { continuation in
+            self.dismiss {
+                continuation.resume()
+            }
+        }
+    }
+
     /// Schedules a dismissal for the currently visible banner after a delay.
     ///
     /// If a new banner becomes active before the delay expires, the dismissal is ignored.
@@ -650,6 +658,14 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                 guard let self else { return }
                 guard self.activeToken == tokenAtSchedule else { return }
                 self.dismiss(completion: completion)
+            }
+        }
+    }
+
+    public func dismissAsync(after seconds: TimeInterval) async {
+        await withCheckedContinuation { continuation in
+            self.dismiss(after: seconds) {
+                continuation.resume()
             }
         }
     }
