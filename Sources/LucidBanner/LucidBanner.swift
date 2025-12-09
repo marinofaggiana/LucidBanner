@@ -111,7 +111,8 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     private var isAnimatingIn = false
     private var isDismissing = false
     private var pendingRelayout = false
-    private var pendingDismiss = false
+    private var isPresenting = false
+    private var pendingDismissCompletions: [() -> Void] = []
 
     // Size
     private var heightConstraint: NSLayoutConstraint?
@@ -260,8 +261,8 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             token: newToken
         )
 
-        // If a window is active/animating, queue or replace according to policy
-        if window != nil || isAnimatingIn || isDismissing {
+        // If a banner is attached or in transition, handle according to policy.
+        if window != nil || isPresenting || isDismissing {
             switch policy {
             case .drop:
                 return activeToken
@@ -271,14 +272,16 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             case .replace:
                 queue.removeAll()
                 queue.append(pending)
-                dismiss { [weak self] in self?.dequeueAndStartIfNeeded() }
+                dismiss()
                 return newToken
             }
         }
 
         // No banner visible: present now
         activeToken = newToken
+        presentedVPosition = vPosition
         applyPending(pending)
+        isPresenting = true
         startShow(with: pending.viewUI)
         return newToken
     }
@@ -551,32 +554,43 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     ///
     /// - Parameter completion: Optional closure called after the banner has been fully dismissed.
     public func dismiss(completion: (() -> Void)? = nil) {
+        // Always store the completion: all callers of dismiss
+        // should be notified when the *current* banner is gone.
+        if let completion {
+            pendingDismissCompletions.append(completion)
+        }
+
         // Cancel auto-dismiss timer
         dismissTimer?.cancel()
         dismissTimer = nil
 
-        // If there is NO active banner window → nothing to animate, cleanup and exit
+        // No active window → no banner to kill.
+        // We still call all pending completions, but we do NOT touch the queue.
         guard let window,
               let hostView = hostController?.view else {
             hostController = nil
             self.window?.isHidden = true
             self.window = nil
             heightConstraint = nil
-            completion?()
+            isPresenting = false
+            isDismissing = false
+
+            let completions = pendingDismissCompletions
+            pendingDismissCompletions.removeAll()
+            completions.forEach { $0() }
+
             return
         }
 
-        // If we are ALREADY dismissing → record the request and EXIT.
-        // The next dismiss will be executed immediately after the current finishes.
+        // If a dismiss is already in progress, do NOT start another animation.
+        // The current cycle will eventually clean up and run all completions.
         if isDismissing {
-            pendingDismiss = true
-            completion?()
             return
         }
 
-        // Start dismissing this banner
+        // First dismiss call: start the animation for this *single* banner.
+        isPresenting = false
         isDismissing = true
-        pendingDismiss = false     // reset “future close” flag for a clean cycle
 
         hostView.isUserInteractionEnabled = false
         panGestureRef?.isEnabled = false
@@ -604,25 +618,17 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         } completion: { [weak self] _ in
             guard let self else { return }
 
-            // Cleanup window for this banner
             self.hostController = nil
             window.isHidden = true
             self.window = nil
             self.heightConstraint = nil
             self.isDismissing = false
 
-            // if a second dismiss arrived DURING animation
-            // close the *next* banner immediately, without showing it fully
-            if self.pendingDismiss {
-                self.pendingDismiss = false
-                self.dequeueAndStartIfNeeded()
-                // Dismiss again immediately (this will consume the next queued banner)
-                self.dismiss(completion: completion)
-                return
-            }
-
             self.dequeueAndStartIfNeeded()
-            completion?()
+
+            let completions = self.pendingDismissCompletions
+            self.pendingDismissCompletions.removeAll()
+            completions.forEach { $0() }
         }
     }
 
@@ -718,17 +724,29 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// Dequeues the next banner (if any) and starts its presentation,
     /// provided no other banner is currently animating or attached.
     private func dequeueAndStartIfNeeded() {
-        // Do not start a new banner while we are already showing or dismissing one,
+        // Do not start a new banner while one is being presented or dismissed,
         // or if a banner window is still attached.
-        guard !isAnimatingIn, !isDismissing, window == nil else { return }
-        guard !queue.isEmpty else { return }
+        guard !isPresenting,
+              !isDismissing,
+              window == nil else {
+            return
+        }
 
-        let next = queue.removeFirst()
-        isAnimatingIn = true
+        guard let next = queue.first else {
+            return
+        }
+
+        queue.removeFirst()
+
         activeToken = next.token
-
-        applyPending(next)
         presentedVPosition = next.vPosition
+
+        // Apply the content/configuration for this request
+        applyPending(next)
+
+        // From now on, we consider a banner as "presenting" (including animation-in + visible).
+        isPresenting = true
+
         startShow(with: next.viewUI)
     }
 
