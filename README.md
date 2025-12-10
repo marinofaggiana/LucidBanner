@@ -17,6 +17,12 @@ Author: **Marino Faggiana** • License: **MIT** • Version: **0.0.1**
 
 ---
 
+### 🚧 Work in Progress
+
+LucidBanner is currently under **active development**.  
+While functional, the library should be considered **experimental**, and its APIs may change as development continues.  
+Production use is not recommended until a stable 1.0 release.
+
 ## Features
 
 - **One-at-a-time display** with queueing policies:
