@@ -92,7 +92,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         let blocksTouches: Bool
         let isDraggable: Bool
         let stage: String?
-        let onTap: ((_ token: Int, _ stage: String?) -> Void)?
+        let onTap: ((_ token: Int?, _ stage: String?) -> Void)?
         let viewUI: (LucidBannerState) -> AnyView
         let token: Int
     }
@@ -134,13 +134,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     private var dragStartTransform: CGAffineTransform = .identity
 
     /// Shared observable state injected into the SwiftUI banner content.
-    let state = LucidBannerState(title: nil,
-                                 subtitle: nil,
-                                 footnote: nil,
-                                 systemImage: nil,
-                                 imageAnimation: .none,
-                                 progress: nil,
-                                 stage: nil)
+    var state: LucidBannerState?
 
     // Config
     private var swipeToDismiss = false
@@ -149,8 +143,30 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
     // Token/revision
     private var generation: Int = 0
-    private var activeToken: Int = 0
-    private var onTap: ((_ token: Int, _ stage: String?) -> Void)?
+    private var activeToken: Int?
+    private var onTap: ((_ token: Int?, _ stage: String?) -> Void)?
+
+    // MARK: - Init
+    override public init() {
+        super.init()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appDidEnterBackground),
+            name: UIApplication.didEnterBackgroundNotification,
+            object: nil
+        )
+    }
+
+    @objc private func appDidEnterBackground() {
+        Task { @MainActor in
+            dismissAll(animated: false)
+
+            window?.isHidden = true
+            window = nil
+            state = nil
+            activeToken = nil
+        }
+    }
 
     // MARK: - Public API
 
@@ -198,8 +214,8 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                                     draggable: Bool = false,
                                     stage: Stage? = nil,
                                     policy: ShowPolicy = .enqueue,
-                                    onTap: ((_ token: Int, _ stage: String?) -> Void)? = nil,
-                                    @ViewBuilder content: @escaping (LucidBannerState) -> Content) -> Int {
+                                    onTap: ((_ token: Int?, _ stage: String?) -> Void)? = nil,
+                                    @ViewBuilder content: @escaping (LucidBannerState) -> Content) -> Int? {
         // Normalize text fields to avoid showing empty strings.
         let normalizedTitle: String? = {
             guard let text = title?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -310,9 +326,9 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                        progress: Double? = nil,
                        stage: Stage? = nil,
                        autoDismissAfter: TimeInterval? = nil,
-                       onTap: ((_ token: Int, _ stage: String?) -> Void)? = nil,
+                       onTap: ((_ token: Int?, _ stage: String?) -> Void)? = nil,
                        for token: Int? = nil) {
-        guard window != nil, (token == nil || token == activeToken) else {
+        guard window != nil, (token == nil || token == activeToken), let state else {
             return
         }
 
@@ -695,6 +711,47 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
     }
 
+    public func dismissAll(animated: Bool = true, completion: (() -> Void)? = nil) {
+        // If no window is present, clean state and fire completion.
+        guard let window else {
+            state = nil
+            activeToken = 0
+            completion?()
+            return
+        }
+
+        // Animation block for hiding the window
+        let hideWindow = {
+            window.alpha = 0
+        }
+
+        // Cleanup block to fully reset the banner system
+        let finalize: () -> Void = { [weak self] in
+            // Destroy the state machine
+            self?.state = nil
+            self?.activeToken = 0
+
+            // Remove and destroy the window
+            window.isHidden = true
+            window.windowLevel = .normal
+            window.rootViewController = nil
+            self?.window = nil
+
+            // Notify caller
+            completion?()
+        }
+
+        // Execute with or without animation
+        if animated {
+            UIView.animate(withDuration: 0.20, animations: hideWindow) { _ in
+                finalize()
+            }
+        } else {
+            hideWindow()
+            finalize()
+        }
+    }
+
     // MARK: - Internals
 
     /// Starts the presentation flow for the given view factory, attaching the window
@@ -714,6 +771,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     ///
     /// - Parameter p: Pending payload describing the banner to be shown.
     private func applyPending(_ p: PendingShow) {
+        guard let state else { return }
         scene = p.scene
 
         // Reset layout-related flags so each banner starts clean
@@ -772,7 +830,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// Creates and attaches the hosting window, installs constraints, gestures,
     /// and runs the presentation animation for the current banner.
     private func attachWindowAndPresent() {
-        guard let scene = self.scene else {
+        guard let scene = self.scene, let state else {
             return
         }
 
@@ -1169,6 +1227,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// Handles tap events on the banner host view and forwards them to the configured `onTap` handler.
     @objc private func handleBannerTap() {
         guard !isDismissing else { return }
-        onTap?(activeToken, state.stage)
+        onTap?(activeToken, state?.stage)
     }
 }
