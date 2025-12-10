@@ -411,6 +411,56 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
     }
 
+    /// Repositions the currently visible banner by updating its vertical/horizontal
+    /// placement constraints and optional horizontal margin.
+    ///
+    /// This method modifies only the banner’s geometric configuration.
+    /// It does **not** alter content, progress, stage, tap handlers or auto-dismiss.
+    ///
+    /// If the banner is currently animating in or dismissing, the relayout request
+    /// is deferred and executed automatically once animations complete.
+    ///
+    /// - Parameters:
+    ///   - vPosition: Optional new vertical position (`.top` or `.bottom`).
+    ///   - hAlignment: Optional new horizontal alignment (e.g. `.leading`, `.center`, `.trailing`).
+    ///   - horizontalMargin: Optional new horizontal margin to apply to the banner.
+    ///   - animated: Whether the repositioning should animate when possible.
+    public func reposition(vPosition: VerticalPosition? = nil,
+                           hAlignment: HorizontalAlignment? = nil,
+                           horizontalMargin: CGFloat? = nil,
+                           animated: Bool = true) {
+        guard window != nil else {
+            return
+        }
+
+        var needsRelayout = false
+
+        if let vPosition, vPosition != self.vPosition {
+            self.vPosition = vPosition
+            needsRelayout = true
+        }
+
+        if let hAlignment, hAlignment != self.hAlignment {
+            self.hAlignment = hAlignment
+            needsRelayout = true
+        }
+
+        if let horizontalMargin, horizontalMargin != self.horizontalMargin {
+            self.horizontalMargin = horizontalMargin
+            needsRelayout = true
+        }
+
+        guard needsRelayout else {
+            return
+        }
+
+        if isAnimatingIn || isDismissing {
+            pendingRelayout = true
+        } else {
+            remeasure(animated: animated)
+        }
+    }
+
     /// Translates the current banner in window space so that its center moves to the given point.
     ///
     /// This method preserves any existing transform (e.g. from dragging) and applies a delta transform
