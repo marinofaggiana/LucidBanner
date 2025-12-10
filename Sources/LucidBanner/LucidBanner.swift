@@ -134,7 +134,15 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     private var dragStartTransform: CGAffineTransform = .identity
 
     /// Shared observable state injected into the SwiftUI banner content.
-    var state: LucidBannerState?
+    let state = LucidBannerState(
+        title: nil,
+        subtitle: nil,
+        footnote: nil,
+        systemImage: nil,
+        imageAnimation: .none,
+        progress: nil,
+        stage: nil
+    )
 
     // Config
     private var swipeToDismiss = false
@@ -163,7 +171,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
             window?.isHidden = true
             window = nil
-            state = nil
             activeToken = nil
         }
     }
@@ -328,7 +335,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                        autoDismissAfter: TimeInterval? = nil,
                        onTap: ((_ token: Int?, _ stage: String?) -> Void)? = nil,
                        for token: Int? = nil) {
-        guard window != nil, (token == nil || token == activeToken), let state else {
+        guard window != nil, (token == nil || token == activeToken) else {
             return
         }
 
@@ -714,8 +721,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     public func dismissAll(animated: Bool = true, completion: (() -> Void)? = nil) {
         // If no window is present, clean state and fire completion.
         guard let window else {
-            state = nil
-            activeToken = 0
+            activeToken = nil
             completion?()
             return
         }
@@ -728,8 +734,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         // Cleanup block to fully reset the banner system
         let finalize: () -> Void = { [weak self] in
             // Destroy the state machine
-            self?.state = nil
-            self?.activeToken = 0
+            self?.activeToken = nil
 
             // Remove and destroy the window
             window.isHidden = true
@@ -771,7 +776,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     ///
     /// - Parameter p: Pending payload describing the banner to be shown.
     private func applyPending(_ p: PendingShow) {
-        guard let state else { return }
         scene = p.scene
 
         // Reset layout-related flags so each banner starts clean
@@ -830,7 +834,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// Creates and attaches the hosting window, installs constraints, gestures,
     /// and runs the presentation animation for the current banner.
     private func attachWindowAndPresent() {
-        guard let scene = self.scene, let state else {
+        guard let scene = self.scene else {
             return
         }
 
@@ -1227,6 +1231,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// Handles tap events on the banner host view and forwards them to the configured `onTap` handler.
     @objc private func handleBannerTap() {
         guard !isDismissing else { return }
-        onTap?(activeToken, state?.stage)
+        onTap?(activeToken, state.stage)
     }
 }
