@@ -547,6 +547,25 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         token == activeToken && window != nil
     }
 
+    /// Returns the currently active `LucidBannerState` for the specified token.
+    ///
+    /// This method provides safe, read-only access to the banner state managed by `LucidBanner`.
+    /// It is intended for external controllers (such as gesture coordinators or layout managers)
+    /// that need to inspect properties of the active banner—e.g., whether it is minimized,
+    /// its current progress value, or any UI-related fields.
+    ///
+    /// The function performs a strict token check: only the banner associated with the
+    /// `activeToken` may expose its state. If the provided token does not match the active
+    /// banner, the method returns `nil`. No internal state is modified.
+    ///
+    /// - Parameter token: The banner identifier for which the caller requests the state.
+    /// - Returns: The `LucidBannerState` associated with the active token, or `nil` if the
+    ///            token does not correspond to the currently displayed banner.
+    public func currentState(for token: Int) -> LucidBannerState? {
+        guard activeToken == token else { return nil }
+        return state
+    }
+
     // MARK: - Dismiss Public API
 
     /// Dismisses the currently visible banner, optionally animating it off-screen,
