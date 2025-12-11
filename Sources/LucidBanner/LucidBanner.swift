@@ -141,6 +141,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         systemImage: nil,
         imageAnimation: .none,
         progress: nil,
+        isDraggable: false,
         stage: nil
     )
 
@@ -787,6 +788,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         state.imageAnimation = p.imageAnimation
         state.progress = p.progress
         state.stage = p.stage
+        state.isDraggable = p.isDraggable
 
         autoDismissAfter = p.autoDismissAfter
         vPosition = p.vPosition

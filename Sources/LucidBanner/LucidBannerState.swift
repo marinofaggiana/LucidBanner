@@ -56,6 +56,9 @@ open class LucidBannerState: ObservableObject {
     /// visual style; the SwiftUI content decides how to react.
     @Published public var isMinimized: Bool = false
 
+
+    @Published public var isDraggable: Bool = false
+
     /// Creates a new shared state object for a LucidBanner.
     ///
     /// Empty strings for textual fields are automatically normalized to `nil`
@@ -75,6 +78,7 @@ open class LucidBannerState: ObservableObject {
                 systemImage: String? = nil,
                 imageAnimation: LucidBanner.LucidBannerAnimationStyle,
                 progress: Double? = nil,
+                isDraggable: Bool,
                 stage: String? = nil) {
         self.title = (title?.isEmpty == true) ? nil : title
         self.subtitle = (subtitle?.isEmpty == true) ? nil : subtitle
@@ -82,6 +86,7 @@ open class LucidBannerState: ObservableObject {
         self.systemImage = systemImage
         self.imageAnimation = imageAnimation
         self.progress = progress
+        self.isDraggable = isDraggable
         self.stage = stage
     }
 }
