@@ -566,7 +566,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     ///
     /// - Parameter token: Banner token to check.
     /// - Returns: `true` if the token matches the current banner and a window is attached.
-    public func isAlive(_ token: Int) -> Bool {
+    public func isAlive(_ token: Int?) -> Bool {
         token == activeToken && window != nil
     }
 

@@ -92,7 +92,10 @@ public final class LucidBannerMinimizeCoordinator {
     ///   - token: The banner token returned by `LucidBanner.shared.show(...)`.
     ///   - anchor: Optional anchor describing where the banner should be placed
     ///             when minimized. Can be updated later via `setAnchor(_:for:)`.
-    public func register(token: Int, anchor: LucidBanner.MinimizeAnchor? = nil) {
+    public func register(token: Int?, anchor: LucidBanner.MinimizeAnchor? = nil) {
+        guard let token else {
+            return
+        }
         entries[token] = Entry(originalCenter: nil, anchor: anchor)
     }
 
@@ -101,8 +104,9 @@ public final class LucidBannerMinimizeCoordinator {
     /// - Parameters:
     ///   - anchor: New anchor to apply. Pass `nil` to remove any anchor.
     ///   - token: The banner token to update.
-    public func setAnchor(_ anchor: LucidBanner.MinimizeAnchor?, for token: Int) {
-        guard var entry = entries[token] else {
+    public func setAnchor(_ anchor: LucidBanner.MinimizeAnchor?, for token: Int?) {
+        guard let token,
+              var entry = entries[token] else {
             return
         }
 
@@ -113,7 +117,10 @@ public final class LucidBannerMinimizeCoordinator {
     /// Clears all tracked state for a given banner token.
     ///
     /// - Parameter token: The banner token to forget.
-    public func clear(token: Int) {
+    public func clear(token: Int?) {
+        guard let token else {
+            return
+        }
         entries[token] = nil
     }
 
@@ -130,8 +137,9 @@ public final class LucidBannerMinimizeCoordinator {
     /// to the configured anchor, if any.
     ///
     /// - Parameter token: The banner token to toggle.
-    public func toggleMinimize(for token: Int) {
-        guard LucidBanner.shared.isAlive(token),
+    public func toggleMinimize(for token: Int?) {
+        guard let token,
+              LucidBanner.shared.isAlive(token),
               let state = LucidBanner.shared.currentState(for: token)
         else {
             clear(token: token)
@@ -148,8 +156,9 @@ public final class LucidBannerMinimizeCoordinator {
     /// Forces minimization of a banner, if it is alive.
     ///
     /// - Parameter token: The banner token to minimize.
-    public func minimize(token: Int) {
-        guard LucidBanner.shared.isAlive(token),
+    public func minimize(token: Int?) {
+        guard let token,
+              LucidBanner.shared.isAlive(token),
               let state = LucidBanner.shared.currentState(for: token)
         else {
             clear(token: token)
@@ -162,8 +171,9 @@ public final class LucidBannerMinimizeCoordinator {
     /// Forces maximization of a banner, if it is alive.
     ///
     /// - Parameter token: The banner token to maximize.
-    public func maximize(token: Int) {
-        guard LucidBanner.shared.isAlive(token),
+    public func maximize(token: Int?) {
+        guard let token,
+              LucidBanner.shared.isAlive(token),
               let state = LucidBanner.shared.currentState(for: token)
         else {
             clear(token: token)
@@ -182,8 +192,9 @@ public final class LucidBannerMinimizeCoordinator {
     /// - Parameters:
     ///   - token: The banner token to refresh.
     ///   - animated: Whether the movement should be animated.
-    public func refreshMinimizedPosition(for token: Int, animated: Bool = true) {
-        guard LucidBanner.shared.isAlive(token),
+    public func refreshMinimizedPosition(for token: Int?, animated: Bool = true) {
+        guard let token,
+              LucidBanner.shared.isAlive(token),
               let state = LucidBanner.shared.currentState(for: token),
               state.isMinimized
         else {
@@ -242,7 +253,10 @@ public final class LucidBannerMinimizeCoordinator {
     /// - Parameters:
     ///   - state: The shared `LucidBannerState` for the token.
     ///   - token: The banner token to minimize.
-    private func minimize(state: LucidBannerState, token: Int) {
+    private func minimize(state: LucidBannerState, token: Int?) {
+        guard let token else {
+            return
+        }
         var entry = entries[token] ?? Entry(originalCenter: nil, anchor: nil)
 
         if let frame = LucidBanner.shared.currentFrameInWindow(for: token) {
@@ -270,8 +284,9 @@ public final class LucidBannerMinimizeCoordinator {
     /// - Parameters:
     ///   - state: The shared `LucidBannerState` for the token.
     ///   - token: The banner token to maximize.
-    private func maximize(state: LucidBannerState, token: Int) {
-        guard var entry = entries[token] else {
+    private func maximize(state: LucidBannerState, token: Int?) {
+        guard let token,
+              var entry = entries[token] else {
             state.isMinimized = false
             LucidBanner.shared.setDraggingEnabled(true, for: token)
             LucidBanner.shared.requestRelayout(animated: true)
@@ -305,8 +320,9 @@ public final class LucidBannerMinimizeCoordinator {
     ///   - token: The banner token.
     ///   - entry: The entry containing anchor information.
     /// - Returns: The resolved point in window coordinates, or `nil` if not available.
-    private func resolvedMinimizePoint(for token: Int, entry: Entry) -> CGPoint? {
-        guard let anchor = entry.anchor else {
+    private func resolvedMinimizePoint(for token: Int?, entry: Entry) -> CGPoint? {
+        guard let token,
+              let anchor = entry.anchor else {
             return nil
         }
         guard let hostView = LucidBanner.shared.currentHostView(for: token),
