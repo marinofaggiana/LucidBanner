@@ -90,7 +90,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         let autoDismissAfter: TimeInterval
         let swipeToDismiss: Bool
         let blocksTouches: Bool
-        let isDraggable: Bool
+        let draggable: Bool
         let stage: String?
         let onTap: ((_ token: Int?, _ stage: String?) -> Void)?
         let viewUI: (LucidBannerState) -> AnyView
@@ -141,14 +141,14 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         systemImage: nil,
         imageAnimation: .none,
         progress: nil,
-        isDraggable: false,
+        draggable: false,
         stage: nil
     )
 
     // Config
     private var swipeToDismiss = false
     private var autoDismissAfter: TimeInterval = 0
-    private var isDraggable: Bool = false
+    private var draggable: Bool = false
 
     // Token/revision
     private var generation: Int = 0
@@ -278,7 +278,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             autoDismissAfter: autoDismissAfter,
             swipeToDismiss: swipeToDismiss,
             blocksTouches: blocksTouches,
-            isDraggable: draggable,
+            draggable: draggable,
             stage: stage?.rawValue,
             onTap: onTap,
             viewUI: viewFactory,
@@ -788,7 +788,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         state.imageAnimation = p.imageAnimation
         state.progress = p.progress
         state.stage = p.stage
-        state.isDraggable = p.isDraggable
+        state.draggable = p.draggable
 
         autoDismissAfter = p.autoDismissAfter
         vPosition = p.vPosition
@@ -796,7 +796,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         horizontalMargin = p.horizontalMargin
         verticalMargin = p.verticalMargin
         blocksTouches = p.blocksTouches
-        isDraggable = p.isDraggable && !p.blocksTouches
+        draggable = p.draggable && !p.blocksTouches
 
         // If touches are blocked, swipeToDismiss is forced off
         swipeToDismiss = p.blocksTouches ? false : p.swipeToDismiss
@@ -921,7 +921,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         // Gestures
         window.hitTargetView = host.view
 
-        if swipeToDismiss || isDraggable {
+        if swipeToDismiss || draggable {
             let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePanGesture(_:)))
             pan.cancelsTouchesInView = false
             pan.delegate = self
@@ -1108,7 +1108,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         if CACurrentMediaTime() < interactionUnlockTime { return false }
 
         // In draggable mode, always allow the pan to begin when touching inside the banner.
-        if isDraggable, gestureRecognizer is UIPanGestureRecognizer {
+        if draggable, gestureRecognizer is UIPanGestureRecognizer {
             return true
         }
 
@@ -1142,7 +1142,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         let translation = g.translation(in: view)
 
         // DRAG MODE: pan repositions the banner instead of dismissing it.
-        if isDraggable {
+        if draggable {
             switch g.state {
             case .began:
                 // Store the starting transform so we can apply deltas on top of it.

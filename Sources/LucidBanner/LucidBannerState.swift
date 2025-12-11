@@ -56,8 +56,8 @@ open class LucidBannerState: ObservableObject {
     /// visual style; the SwiftUI content decides how to react.
     @Published public var isMinimized: Bool = false
 
-
-    @Published public var isDraggable: Bool = false
+    /// When `true`, the banner can be dragged freely instead of only swiped to dismiss.
+    @Published public var draggable: Bool = false
 
     /// Creates a new shared state object for a LucidBanner.
     ///
@@ -78,7 +78,7 @@ open class LucidBannerState: ObservableObject {
                 systemImage: String? = nil,
                 imageAnimation: LucidBanner.LucidBannerAnimationStyle,
                 progress: Double? = nil,
-                isDraggable: Bool,
+                draggable: Bool,
                 stage: String? = nil) {
         self.title = (title?.isEmpty == true) ? nil : title
         self.subtitle = (subtitle?.isEmpty == true) ? nil : subtitle
@@ -86,7 +86,7 @@ open class LucidBannerState: ObservableObject {
         self.systemImage = systemImage
         self.imageAnimation = imageAnimation
         self.progress = progress
-        self.isDraggable = isDraggable
+        self.draggable = draggable
         self.stage = stage
     }
 }
