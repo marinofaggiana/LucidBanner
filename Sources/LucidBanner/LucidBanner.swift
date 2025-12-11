@@ -78,13 +78,11 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     ///
     /// This describes *where* the minimized bubble should be placed
     /// inside the window coordinate space.
-    enum MinimizeAnchor: Equatable {
+    public enum MinimizeAnchor: Equatable {
         /// Absolute point in window coordinates.
         case absolute(CGPoint)
-
         /// Attach to one of the window corners with a given inset.
         case corner(Corner, inset: CGSize = CGSize(width: 20, height: 40))
-
         /// Supported corners for minimized placement.
         public enum Corner {
             case topLeading
