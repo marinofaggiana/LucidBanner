@@ -78,7 +78,7 @@ open class LucidBannerState: ObservableObject {
                 systemImage: String? = nil,
                 imageAnimation: LucidBanner.LucidBannerAnimationStyle,
                 progress: Double? = nil,
-                draggable: Bool,
+                draggable: Bool = false,
                 stage: String? = nil) {
         self.title = (title?.isEmpty == true) ? nil : title
         self.subtitle = (subtitle?.isEmpty == true) ? nil : subtitle

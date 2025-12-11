@@ -74,6 +74,26 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         case right
     }
 
+    /// Logical anchor used when a banner is minimized.
+    ///
+    /// This describes *where* the minimized bubble should be placed
+    /// inside the window coordinate space.
+    enum MinimizeAnchor: Equatable {
+        /// Absolute point in window coordinates.
+        case absolute(CGPoint)
+
+        /// Attach to one of the window corners with a given inset.
+        case corner(Corner, inset: CGSize = CGSize(width: 20, height: 40))
+
+        /// Supported corners for minimized placement.
+        public enum Corner {
+            case topLeading
+            case topTrailing
+            case bottomLeading
+            case bottomTrailing
+        }
+    }
+
     // Pending payload used for queueing
     private struct PendingShow {
         let scene: UIWindowScene?
