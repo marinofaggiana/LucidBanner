@@ -139,7 +139,7 @@ public final class LucidBannerMinimizeCoordinator {
     /// Behavior:
     /// - If the banner is minimized, it is restored (maximized).
     /// - If the banner is expanded, it is minimized and moved to the resolver-provided point.
-    func handleTap(_ state: LucidBannerState) {
+    public func handleTap(_ state: LucidBannerState) {
         guard let token = currentToken else { return }
 
         guard LucidBanner.shared.isAlive(token) else {
