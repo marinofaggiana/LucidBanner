@@ -262,7 +262,7 @@ public final class LucidBannerMinimizeCoordinator {
             return nil
         }
 
-        let ctx = ResolveContext(
+        let context = ResolveContext(
             token: token,
             state: state,
             hostView: hostView,
@@ -271,6 +271,6 @@ public final class LucidBannerMinimizeCoordinator {
             safeAreaInsets: window.safeAreaInsets
         )
 
-        return resolveHandler(ctx)
+        return resolveHandler(context)
     }
 }
