@@ -45,22 +45,22 @@ public final class LucidBannerMinimizeCoordinator {
     /// for the minimized banner.
     public struct ResolveContext {
         /// The active banner token.
-        let token: Int
+        public let token: Int
 
         /// The shared banner state instance (SwiftUI observes this).
-        let state: LucidBannerState
+        public let state: LucidBannerState
 
         /// The banner host view (UIKit container for the SwiftUI content).
-        let hostView: UIView
+        public let hostView: UIView
 
         /// The window hosting the banner.
-        let window: UIWindow
+        public let window: UIWindow
 
         /// Convenience: window bounds.
-        let bounds: CGRect
+        public let bounds: CGRect
 
         /// Convenience: window safe-area insets.
-        let safeAreaInsets: UIEdgeInsets
+        public let safeAreaInsets: UIEdgeInsets
     }
 
     /// Mandatory resolver used to compute the minimized target point.
