@@ -43,7 +43,7 @@ public final class LucidBannerMinimizeCoordinator {
     ///
     /// The resolver should return a target point in **window coordinates**
     /// for the minimized banner.
-    struct ResolveContext {
+    public struct ResolveContext {
         /// The active banner token.
         let token: Int
 
@@ -67,7 +67,7 @@ public final class LucidBannerMinimizeCoordinator {
     ///
     /// Return a CGPoint in window coordinates where the banner should move
     /// when minimized.
-    typealias ResolveMinimizePointHandler = @MainActor (_ context: ResolveContext) -> CGPoint
+    public typealias ResolveMinimizePointHandler = @MainActor (_ context: ResolveContext) -> CGPoint
 
     // MARK: - Stored properties
 
@@ -120,7 +120,7 @@ public final class LucidBannerMinimizeCoordinator {
     /// - Parameters:
     ///   - token: Banner token returned by `LucidBanner.shared.show(...)`.
     ///   - resolveMinimizePoint: Mandatory handler returning the minimized target point.
-    func register(token: Int?, resolveMinimizePoint: @escaping ResolveMinimizePointHandler) {
+    public func register(token: Int?, resolveMinimizePoint: @escaping ResolveMinimizePointHandler) {
         guard let token else {
             clear()
             return
