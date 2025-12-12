@@ -27,6 +27,12 @@ public extension LucidBanner {
         case info
         /// Warning or potentially problematic condition.
         case warning
+        /// Used for utility
+        case button
+        /// Used for utility
+        case none
+        /// Used for utility
+        case placeholder
         /// Custom, app-defined stage identified by an arbitrary string.
         case custom(String)
 
@@ -38,9 +44,12 @@ public extension LucidBanner {
         public var rawValue: String {
             switch self {
             case .success: return "success"
-            case .error:   return "error"
-            case .info:    return "info"
+            case .error: return "error"
+            case .info: return "info"
             case .warning: return "warning"
+            case .button: return "button"
+            case .none: return "none"
+            case .placeholder: return "placeholder"
             case .custom(let value): return value
             }
         }
@@ -56,10 +65,13 @@ public extension LucidBanner {
             let lower = rawValue.lowercased()
             switch lower {
             case "success": self = .success
-            case "error":   self = .error
-            case "info":    self = .info
+            case "error": self = .error
+            case "info": self = .info
             case "warning": self = .warning
-            default:        self = .custom(rawValue)
+            case "button": self = .button
+            case "none": self = .none
+            case "placeholder": self = .placeholder
+            default: self = .custom(rawValue)
             }
         }
     }
