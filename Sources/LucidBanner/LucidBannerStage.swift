@@ -30,8 +30,6 @@ public extension LucidBanner {
         /// Used for utility
         case button
         /// Used for utility
-        case none
-        /// Used for utility
         case placeholder
         /// Custom, app-defined stage identified by an arbitrary string.
         case custom(String)
@@ -48,7 +46,6 @@ public extension LucidBanner {
             case .info: return "info"
             case .warning: return "warning"
             case .button: return "button"
-            case .none: return "none"
             case .placeholder: return "placeholder"
             case .custom(let value): return value
             }
@@ -69,7 +66,6 @@ public extension LucidBanner {
             case "info": self = .info
             case "warning": self = .warning
             case "button": self = .button
-            case "none": self = .none
             case "placeholder": self = .placeholder
             default: self = .custom(rawValue)
             }
