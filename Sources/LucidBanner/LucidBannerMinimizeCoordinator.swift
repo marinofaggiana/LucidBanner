@@ -34,7 +34,7 @@
 /// Note:
 /// - This coordinator tracks a single active token (`currentToken`) at a time.
 @MainActor
-final class LucidBannerMinimizeCoordinator {
+public final class LucidBannerMinimizeCoordinator {
     static let shared = LucidBannerMinimizeCoordinator()
 
     // MARK: - Types
