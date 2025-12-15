@@ -1293,25 +1293,31 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     }
 
     private func clampCurrentTransformToBounds() {
-        guard let view = hostController?.view else { return }
-        guard let container = view.superview else { return }
-        let currentFrame = view.frame
+        guard let view = hostController?.view, let window else { return }
 
-        let insets = container.safeAreaInsets
-        let minX = insets.left
-        let maxX = container.bounds.width - insets.right - currentFrame.width
-        let minY = insets.top
-        let maxY = container.bounds.height - insets.bottom - currentFrame.height
+        // Ensure geometry is up to date
+        window.layoutIfNeeded()
 
-        let clampedOriginX = max(minX, min(currentFrame.minX, maxX))
-        let clampedOriginY = max(minY, min(currentFrame.minY, maxY))
+        // Allowed area in window coordinates
+        let safeFrame = window.safeAreaLayoutGuide.layoutFrame
 
-        let dx = clampedOriginX - currentFrame.minX
-        let dy = clampedOriginY - currentFrame.minY
+        // Current banner frame converted into window coordinates
+        let frameInWindow = view.superview?.convert(view.frame, to: window) ?? view.frame
 
-        if dx != 0 || dy != 0 {
-            view.transform = view.transform.translatedBy(x: dx, y: dy)
-        }
+        let minX = safeFrame.minX
+        let maxX = safeFrame.maxX - frameInWindow.width
+        let minY = safeFrame.minY
+        let maxY = safeFrame.maxY - frameInWindow.height
+
+        let clampedX = max(minX, min(frameInWindow.minX, maxX))
+        let clampedY = max(minY, min(frameInWindow.minY, maxY))
+
+        let dx = clampedX - frameInWindow.minX
+        let dy = clampedY - frameInWindow.minY
+
+        guard abs(dx) > 0.5 || abs(dy) > 0.5 else { return }
+
+        view.transform = view.transform.translatedBy(x: dx, y: dy)
     }
 
     /// Handles tap events on the banner host view and forwards them to the configured `onTap` handler.
