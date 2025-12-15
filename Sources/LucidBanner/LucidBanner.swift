@@ -132,6 +132,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     private var interactionUnlockTime: CFTimeInterval = 0
     private weak var panGestureRef: UIPanGestureRecognizer?
     private var dragStartTransform: CGAffineTransform = .identity
+    private var dragFrozenBounds: CGRect?
 
     /// Shared observable state injected into the SwiftUI banner content.
     let state = LucidBannerState(
@@ -1148,13 +1149,23 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                 // Store the starting transform so we can apply deltas on top of it.
                 dragStartTransform = view.transform
 
+                // Freeze the current bounds to prevent vertical compression near top/bottom edges.
+                dragFrozenBounds = view.bounds
+
             case .changed:
                 // Apply translation relative to the starting transform to avoid cumulative drift.
                 let transform = dragStartTransform.translatedBy(x: translation.x, y: translation.y)
                 view.transform = transform
                 view.alpha = 1.0
 
-            case .ended, .cancelled:
+                // Re-apply frozen bounds in case Auto Layout / safe-area triggers a size change.
+                if let frozen = dragFrozenBounds {
+                    view.bounds = frozen
+                }
+
+            case .ended, .cancelled, .failed:
+                dragFrozenBounds = nil
+
                 // Small spring to "settle" visually, but keep the final position.
                 UIView.animate(
                     withDuration: 0.25,
@@ -1192,41 +1203,41 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
 
         switch g.state {
-            case .changed:
-                applyTransform(for: dy)
-                view.alpha = max(0.4, 1.0 - abs(view.transform.ty) / 120.0)
+        case .changed:
+            applyTransform(for: dy)
+            view.alpha = max(0.4, 1.0 - abs(view.transform.ty) / 120.0)
 
-            case .ended, .cancelled:
-                let vy = g.velocity(in: view).y
+        case .ended, .cancelled:
+            let vy = g.velocity(in: view).y
 
-                let shouldDismiss: Bool = {
-                    switch presentedVPosition {
-                    case .top:
-                        return (dy < -30) || (vy < -500)
-                    case .bottom:
-                        return (dy > 30) || (vy > 500)
-                    case .center:
-                        return abs(dy) > 40 || abs(vy) > 600
-                    }
-                }()
-
-                if shouldDismiss {
-                    dismiss()
-                } else {
-                    UIView.animate(
-                        withDuration: 0.25,
-                        delay: 0,
-                        usingSpringWithDamping: 0.85,
-                        initialSpringVelocity: 0.5,
-                        options: [.curveEaseOut, .beginFromCurrentState]
-                    ) {
-                        view.alpha = 1
-                        view.transform = .identity
-                    }
+            let shouldDismiss: Bool = {
+                switch presentedVPosition {
+                case .top:
+                    return (dy < -30) || (vy < -500)
+                case .bottom:
+                    return (dy > 30) || (vy > 500)
+                case .center:
+                    return abs(dy) > 40 || abs(vy) > 600
                 }
+            }()
 
-            default:
-                break
+            if shouldDismiss {
+                dismiss()
+            } else {
+                UIView.animate(
+                    withDuration: 0.25,
+                    delay: 0,
+                    usingSpringWithDamping: 0.85,
+                    initialSpringVelocity: 0.5,
+                    options: [.curveEaseOut, .beginFromCurrentState]
+                ) {
+                    view.alpha = 1
+                    view.transform = .identity
+                }
+            }
+
+        default:
+            break
         }
     }
 
