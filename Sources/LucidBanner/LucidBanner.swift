@@ -1293,30 +1293,38 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     }
 
     private func clampCurrentTransformToBounds() {
-        guard let view = hostController?.view, let window else { return }
+        guard let view = hostController?.view else { return }
+        guard let window else { return }
+        guard let container = view.superview else { return }
 
-        // Ensure geometry is up to date
+        // Make sure geometry is up to date
         window.layoutIfNeeded()
+        container.layoutIfNeeded()
 
-        // Allowed area in window coordinates
-        let safeFrame = window.safeAreaLayoutGuide.layoutFrame
+        // Allowed area in WINDOW coordinates
+        let safeFrameInWindow = window.safeAreaLayoutGuide.layoutFrame
 
-        // Current banner frame converted into window coordinates
-        let frameInWindow = view.superview?.convert(view.frame, to: window) ?? view.frame
+        // Convert allowed area into CONTAINER coordinates (same space as view.frame)
+        let safeFrame = window.convert(safeFrameInWindow, to: container)
+
+        // Current frame is in CONTAINER coordinates
+        let currentFrame = view.frame
 
         let minX = safeFrame.minX
-        let maxX = safeFrame.maxX - frameInWindow.width
+        let maxX = safeFrame.maxX - currentFrame.width
         let minY = safeFrame.minY
-        let maxY = safeFrame.maxY - frameInWindow.height
+        let maxY = safeFrame.maxY - currentFrame.height
 
-        let clampedX = max(minX, min(frameInWindow.minX, maxX))
-        let clampedY = max(minY, min(frameInWindow.minY, maxY))
+        let clampedX = max(minX, min(currentFrame.minX, maxX))
+        let clampedY = max(minY, min(currentFrame.minY, maxY))
 
-        let dx = clampedX - frameInWindow.minX
-        let dy = clampedY - frameInWindow.minY
+        let dx = clampedX - currentFrame.minX
+        let dy = clampedY - currentFrame.minY
 
+        // Ignore tiny floating-point noise
         guard abs(dx) > 0.5 || abs(dy) > 0.5 else { return }
 
+        // Apply translation in the SAME coordinate space (container)
         view.transform = view.transform.translatedBy(x: dx, y: dy)
     }
 
