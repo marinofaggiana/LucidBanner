@@ -132,6 +132,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     private var interactionUnlockTime: CFTimeInterval = 0
     private weak var panGestureRef: UIPanGestureRecognizer?
     private var dragStartTransform: CGAffineTransform = .identity
+    private var dragSizeConstraints: [NSLayoutConstraint] = []
 
     /// Shared observable state injected into the SwiftUI banner content.
     let state = LucidBannerState(
@@ -1139,7 +1140,9 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         // Prevent interaction for a very short time after show animation
         if CACurrentMediaTime() < interactionUnlockTime { return }
 
-        let translation = g.translation(in: view)
+        // Use the superview coordinate space for stable translations.
+        let container = view.superview ?? view
+        let translation = g.translation(in: container)
 
         // DRAG MODE: pan repositions the banner instead of dismissing it.
         if draggable {
@@ -1148,13 +1151,36 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                 // Store the starting transform so we can apply deltas on top of it.
                 dragStartTransform = view.transform
 
+                // Freeze size during dragging to prevent Auto Layout / safe-area compression.
+                // This avoids the "shrinking" effect near top/bottom edges.
+                if dragSizeConstraints.isEmpty {
+                    view.translatesAutoresizingMaskIntoConstraints = false
+
+                    let h = view.heightAnchor.constraint(equalToConstant: view.bounds.height)
+                    // Width freeze is optional, but it helps if your layout can reflow horizontally.
+                    let w = view.widthAnchor.constraint(equalToConstant: view.bounds.width)
+
+                    h.priority = .required
+                    w.priority = .required
+
+                    dragSizeConstraints = [h, w]
+                    NSLayoutConstraint.activate(dragSizeConstraints)
+                    view.superview?.layoutIfNeeded()
+                }
+
             case .changed:
                 // Apply translation relative to the starting transform to avoid cumulative drift.
                 let transform = dragStartTransform.translatedBy(x: translation.x, y: translation.y)
                 view.transform = transform
                 view.alpha = 1.0
 
-            case .ended, .cancelled:
+            case .ended, .cancelled, .failed:
+                // Release the frozen size so the banner can naturally relayout again.
+                if !dragSizeConstraints.isEmpty {
+                    NSLayoutConstraint.deactivate(dragSizeConstraints)
+                    dragSizeConstraints.removeAll()
+                }
+
                 // Small spring to "settle" visually, but keep the final position.
                 UIView.animate(
                     withDuration: 0.25,
@@ -1169,6 +1195,9 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             default:
                 break
             }
+
+            // Reset translation in container coordinates to keep movement smooth.
+            g.setTranslation(.zero, in: container)
             return
         }
 
@@ -1192,41 +1221,41 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
 
         switch g.state {
-            case .changed:
-                applyTransform(for: dy)
-                view.alpha = max(0.4, 1.0 - abs(view.transform.ty) / 120.0)
+        case .changed:
+            applyTransform(for: dy)
+            view.alpha = max(0.4, 1.0 - abs(view.transform.ty) / 120.0)
 
-            case .ended, .cancelled:
-                let vy = g.velocity(in: view).y
+        case .ended, .cancelled:
+            let vy = g.velocity(in: view).y
 
-                let shouldDismiss: Bool = {
-                    switch presentedVPosition {
-                    case .top:
-                        return (dy < -30) || (vy < -500)
-                    case .bottom:
-                        return (dy > 30) || (vy > 500)
-                    case .center:
-                        return abs(dy) > 40 || abs(vy) > 600
-                    }
-                }()
-
-                if shouldDismiss {
-                    dismiss()
-                } else {
-                    UIView.animate(
-                        withDuration: 0.25,
-                        delay: 0,
-                        usingSpringWithDamping: 0.85,
-                        initialSpringVelocity: 0.5,
-                        options: [.curveEaseOut, .beginFromCurrentState]
-                    ) {
-                        view.alpha = 1
-                        view.transform = .identity
-                    }
+            let shouldDismiss: Bool = {
+                switch presentedVPosition {
+                case .top:
+                    return (dy < -30) || (vy < -500)
+                case .bottom:
+                    return (dy > 30) || (vy > 500)
+                case .center:
+                    return abs(dy) > 40 || abs(vy) > 600
                 }
+            }()
 
-            default:
-                break
+            if shouldDismiss {
+                dismiss()
+            } else {
+                UIView.animate(
+                    withDuration: 0.25,
+                    delay: 0,
+                    usingSpringWithDamping: 0.85,
+                    initialSpringVelocity: 0.5,
+                    options: [.curveEaseOut, .beginFromCurrentState]
+                ) {
+                    view.alpha = 1
+                    view.transform = .identity
+                }
+            }
+
+        default:
+            break
         }
     }
 
