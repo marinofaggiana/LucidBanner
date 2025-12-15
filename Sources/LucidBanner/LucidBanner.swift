@@ -133,7 +133,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     private weak var panGestureRef: UIPanGestureRecognizer?
     private var dragStartTransform: CGAffineTransform = .identity
     private var isUserDraggingBanner = false
-    private var dragStartFrameInContainer: CGRect = .zero
     private var pendingGeometryWorkItem: DispatchWorkItem?
 
     /// Shared observable state injected into the SwiftUI banner content.
@@ -1144,45 +1143,43 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     ///
     /// - Parameter g: Active pan gesture recognizer.
     @objc private func handlePanGesture(_ g: UIPanGestureRecognizer) {
-        guard let view = hostController?.view else { return }
+        guard let view = g.view else { return }
 
         if CACurrentMediaTime() < interactionUnlockTime { return }
 
-        // DRAG MODE: pan repositions the banner instead of dismissing it.
+        // DRAG MODE
         if draggable {
-            guard let window else { return }
+            guard let window = view.window else { return }
             let translation = g.translation(in: window)
 
             switch g.state {
             case .began:
-                isUserDraggingBanner = true
+                dragStartTransform = view.transform
 
             case .changed:
-                var newCenter = CGPoint(x: view.center.x + translation.x,
-                                        y: view.center.y + translation.y)
+                var transform = dragStartTransform.translatedBy(x: translation.x, y: translation.y)
 
                 window.layoutIfNeeded()
                 let safeFrame = window.safeAreaLayoutGuide.layoutFrame
 
-                let halfW = view.bounds.width * 0.5
-                let halfH = view.bounds.height * 0.5
+                let frameInWindow = view.superview?.convert(view.frame, to: window) ?? view.frame
+                let proposedFrame = frameInWindow.offsetBy(dx: translation.x, dy: translation.y)
 
-                let minX = safeFrame.minX + halfW
-                let maxX = safeFrame.maxX - halfW
-                let minY = safeFrame.minY + halfH
-                let maxY = safeFrame.maxY - halfH
+                let minX = safeFrame.minX
+                let maxX = safeFrame.maxX - frameInWindow.width
+                let minY = safeFrame.minY
+                let maxY = safeFrame.maxY - frameInWindow.height
 
-                newCenter.x = max(minX, min(newCenter.x, maxX))
-                newCenter.y = max(minY, min(newCenter.y, maxY))
+                if proposedFrame.minX < minX { transform.tx += (minX - proposedFrame.minX) }
+                else if proposedFrame.minX > maxX { transform.tx -= (proposedFrame.minX - maxX) }
 
-                view.center = newCenter
+                if proposedFrame.minY < minY { transform.ty += (minY - proposedFrame.minY) }
+                else if proposedFrame.minY > maxY { transform.ty -= (proposedFrame.minY - maxY) }
+
+                view.transform = transform
                 view.alpha = 1.0
 
-                g.setTranslation(.zero, in: window)
-
             case .ended, .cancelled, .failed:
-                isUserDraggingBanner = false
-
                 UIView.animate(
                     withDuration: 0.25,
                     delay: 0,
