@@ -167,12 +167,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             name: UIApplication.didEnterBackgroundNotification,
             object: nil
         )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleSceneGeometryChange),
-            name: UIDevice.orientationDidChangeNotification,
-            object: nil
-        )
     }
 
     @objc private func appDidEnterBackground() {
@@ -183,20 +177,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             window = nil
             activeToken = nil
         }
-    }
-
-    @objc private func handleSceneGeometryChange() {
-        pendingGeometryWorkItem?.cancel()
-
-        let workItem = DispatchWorkItem { [weak self] in
-            guard let self else { return }
-            self.clampCurrentTransformToBounds()
-        }
-
-        pendingGeometryWorkItem = workItem
-
-        // ~2–3 frames delay: stable after rotation and interactive iPad resizing.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.04, execute: workItem)
     }
 
     // MARK: - Public API
@@ -1164,43 +1144,44 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
         // DRAG MODE: pan repositions the banner instead of dismissing it.
         if draggable {
-            guard let container = view.superview else { return }
+            guard let window else { return }
+            guard let container = window.rootViewController?.view else { return }
 
-            // Use container coordinates for stable translation and clamping.
+            // Use container coordinates (this container follows rotation/resizing).
             let translation = g.translation(in: container)
 
             switch g.state {
             case .began:
                 isUserDraggingBanner = true
 
-                // Store the starting transform so we can apply deltas on top of it.
+                // Baseline transform + baseline frame in the SAME container coordinate space.
                 dragStartTransform = view.transform
-
-                // Capture the starting frame in container space for stable math.
                 dragStartFrameInContainer = view.frame
 
             case .changed:
                 // Proposed transform from pan gesture.
                 var transform = dragStartTransform.translatedBy(x: translation.x, y: translation.y)
 
-                // Proposed frame in container coordinates based on the starting frame.
+                // Proposed frame in container coordinates.
                 let proposedFrame = dragStartFrameInContainer.offsetBy(dx: translation.x, dy: translation.y)
 
-                // Allowed range (safe-area aware).
-                let insets = container.safeAreaInsets
-                let minX = insets.left
-                let maxX = container.bounds.width - insets.right - dragStartFrameInContainer.width
-                let minY = insets.top
-                let maxY = container.bounds.height - insets.bottom - dragStartFrameInContainer.height
+                // Allowed area that updates with orientation.
+                container.layoutIfNeeded()
+                let safeFrame = container.safeAreaLayoutGuide.layoutFrame
 
-                // Clamp X by correcting transform.tx.
+                let minX = safeFrame.minX
+                let maxX = safeFrame.maxX - dragStartFrameInContainer.width
+                let minY = safeFrame.minY
+                let maxY = safeFrame.maxY - dragStartFrameInContainer.height
+
+                // Clamp X
                 if proposedFrame.minX < minX {
                     transform.tx += (minX - proposedFrame.minX)
                 } else if proposedFrame.minX > maxX {
                     transform.tx -= (proposedFrame.minX - maxX)
                 }
 
-                // Clamp Y by correcting transform.ty.
+                // Clamp Y
                 if proposedFrame.minY < minY {
                     transform.ty += (minY - proposedFrame.minY)
                 } else if proposedFrame.minY > maxY {
@@ -1212,11 +1193,8 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
             case .ended, .cancelled, .failed:
                 isUserDraggingBanner = false
-
-                // Persist the final transform as the new baseline for the next drag.
                 dragStartTransform = view.transform
 
-                // Small spring to "settle" visually, but keep the final position.
                 UIView.animate(
                     withDuration: 0.25,
                     delay: 0,
