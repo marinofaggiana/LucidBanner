@@ -132,8 +132,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     private var interactionUnlockTime: CFTimeInterval = 0
     private weak var panGestureRef: UIPanGestureRecognizer?
     private var dragStartTransform: CGAffineTransform = .identity
-    private var isUserDraggingBanner = false
-    private var pendingGeometryWorkItem: DispatchWorkItem?
 
     /// Shared observable state injected into the SwiftUI banner content.
     let state = LucidBannerState(
@@ -843,7 +841,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
 
         let window = LucidBannerWindow(windowScene: scene)
-        window.frame = scene.coordinateSpace.bounds
         window.windowLevel = .statusBar + 1
         window.backgroundColor = .clear
         window.isPassthrough = !blocksTouches
@@ -869,13 +866,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         window.rootViewController = rootViewController
 
         root.addSubview(scrim)
-
-        let dragContainer = UIView()
-        dragContainer.translatesAutoresizingMaskIntoConstraints = false
-        dragContainer.backgroundColor = .clear
-        root.addSubview(dragContainer)
-
-        dragContainer.addSubview(host.view)
+        root.addSubview(host.view)
         host.view.translatesAutoresizingMaskIntoConstraints = false
 
         let guide = root.safeAreaLayoutGuide
@@ -1143,43 +1134,28 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     ///
     /// - Parameter g: Active pan gesture recognizer.
     @objc private func handlePanGesture(_ g: UIPanGestureRecognizer) {
-        guard let view = g.view else { return }
+        guard let view = hostController?.view else { return }
 
+        // Prevent interaction for a very short time after show animation
         if CACurrentMediaTime() < interactionUnlockTime { return }
 
-        // DRAG MODE
-        if draggable {
-            guard let window = view.window else { return }
-            let translation = g.translation(in: window)
+        let translation = g.translation(in: view)
 
+        // DRAG MODE: pan repositions the banner instead of dismissing it.
+        if draggable {
             switch g.state {
             case .began:
+                // Store the starting transform so we can apply deltas on top of it.
                 dragStartTransform = view.transform
 
             case .changed:
-                var transform = dragStartTransform.translatedBy(x: translation.x, y: translation.y)
-
-                window.layoutIfNeeded()
-                let safeFrame = window.safeAreaLayoutGuide.layoutFrame
-
-                let frameInWindow = view.superview?.convert(view.frame, to: window) ?? view.frame
-                let proposedFrame = frameInWindow.offsetBy(dx: translation.x, dy: translation.y)
-
-                let minX = safeFrame.minX
-                let maxX = safeFrame.maxX - frameInWindow.width
-                let minY = safeFrame.minY
-                let maxY = safeFrame.maxY - frameInWindow.height
-
-                if proposedFrame.minX < minX { transform.tx += (minX - proposedFrame.minX) }
-                else if proposedFrame.minX > maxX { transform.tx -= (proposedFrame.minX - maxX) }
-
-                if proposedFrame.minY < minY { transform.ty += (minY - proposedFrame.minY) }
-                else if proposedFrame.minY > maxY { transform.ty -= (proposedFrame.minY - maxY) }
-
+                // Apply translation relative to the starting transform to avoid cumulative drift.
+                let transform = dragStartTransform.translatedBy(x: translation.x, y: translation.y)
                 view.transform = transform
                 view.alpha = 1.0
 
-            case .ended, .cancelled, .failed:
+            case .ended, .cancelled:
+                // Small spring to "settle" visually, but keep the final position.
                 UIView.animate(
                     withDuration: 0.25,
                     delay: 0,
@@ -1197,7 +1173,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
 
         // DISMISS MODE: original swipe-to-dismiss behavior.
-        let translation = g.translation(in: view)
         let dy = translation.y
 
         func applyTransform(for y: CGFloat) {
@@ -1217,41 +1192,41 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
 
         switch g.state {
-        case .changed:
-            applyTransform(for: dy)
-            view.alpha = max(0.4, 1.0 - abs(view.transform.ty) / 120.0)
+            case .changed:
+                applyTransform(for: dy)
+                view.alpha = max(0.4, 1.0 - abs(view.transform.ty) / 120.0)
 
-        case .ended, .cancelled:
-            let vy = g.velocity(in: view).y
+            case .ended, .cancelled:
+                let vy = g.velocity(in: view).y
 
-            let shouldDismiss: Bool = {
-                switch presentedVPosition {
-                case .top:
-                    return (dy < -30) || (vy < -500)
-                case .bottom:
-                    return (dy > 30) || (vy > 500)
-                case .center:
-                    return abs(dy) > 40 || abs(vy) > 600
+                let shouldDismiss: Bool = {
+                    switch presentedVPosition {
+                    case .top:
+                        return (dy < -30) || (vy < -500)
+                    case .bottom:
+                        return (dy > 30) || (vy > 500)
+                    case .center:
+                        return abs(dy) > 40 || abs(vy) > 600
+                    }
+                }()
+
+                if shouldDismiss {
+                    dismiss()
+                } else {
+                    UIView.animate(
+                        withDuration: 0.25,
+                        delay: 0,
+                        usingSpringWithDamping: 0.85,
+                        initialSpringVelocity: 0.5,
+                        options: [.curveEaseOut, .beginFromCurrentState]
+                    ) {
+                        view.alpha = 1
+                        view.transform = .identity
+                    }
                 }
-            }()
 
-            if shouldDismiss {
-                dismiss()
-            } else {
-                UIView.animate(
-                    withDuration: 0.25,
-                    delay: 0,
-                    usingSpringWithDamping: 0.85,
-                    initialSpringVelocity: 0.5,
-                    options: [.curveEaseOut, .beginFromCurrentState]
-                ) {
-                    view.alpha = 1
-                    view.transform = .identity
-                }
-            }
-
-        default:
-            break
+            default:
+                break
         }
     }
 
