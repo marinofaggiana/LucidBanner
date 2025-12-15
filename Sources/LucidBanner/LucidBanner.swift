@@ -133,6 +133,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     private weak var panGestureRef: UIPanGestureRecognizer?
     private var dragStartTransform: CGAffineTransform = .identity
     private var dragStartFrameInContainer: CGRect = .zero
+    private var pendingGeometryWorkItem: DispatchWorkItem?
 
     /// Shared observable state injected into the SwiftUI banner content.
     let state = LucidBannerState(
@@ -184,9 +185,17 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     }
 
     @objc private func handleSceneGeometryChange() {
-        DispatchQueue.main.async {
+        pendingGeometryWorkItem?.cancel()
+
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
             self.clampCurrentTransformToBounds()
         }
+
+        pendingGeometryWorkItem = workItem
+
+        // ~2–3 frames delay: stable after rotation and interactive iPad resizing.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.04, execute: workItem)
     }
 
     // MARK: - Public API
