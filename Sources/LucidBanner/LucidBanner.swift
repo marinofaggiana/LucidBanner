@@ -1139,61 +1139,42 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     @objc private func handlePanGesture(_ g: UIPanGestureRecognizer) {
         guard let view = hostController?.view else { return }
 
-        // Prevent interaction for a very short time after show animation
         if CACurrentMediaTime() < interactionUnlockTime { return }
 
         // DRAG MODE: pan repositions the banner instead of dismissing it.
         if draggable {
             guard let window else { return }
-            guard let container = window.rootViewController?.view else { return }
-
-            // Use container coordinates (this container follows rotation/resizing).
-            let translation = g.translation(in: container)
+            let translation = g.translation(in: window)
 
             switch g.state {
             case .began:
                 isUserDraggingBanner = true
 
-                // Baseline transform + baseline frame in the SAME container coordinate space.
-                dragStartTransform = view.transform
-                dragStartFrameInContainer = view.frame
-
             case .changed:
-                // Proposed transform from pan gesture.
-                var transform = dragStartTransform.translatedBy(x: translation.x, y: translation.y)
+                var newCenter = CGPoint(x: view.center.x + translation.x,
+                                        y: view.center.y + translation.y)
 
-                // Proposed frame in container coordinates.
-                let proposedFrame = dragStartFrameInContainer.offsetBy(dx: translation.x, dy: translation.y)
+                window.layoutIfNeeded()
+                let safeFrame = window.safeAreaLayoutGuide.layoutFrame
 
-                // Allowed area that updates with orientation.
-                container.layoutIfNeeded()
-                let safeFrame = container.safeAreaLayoutGuide.layoutFrame
+                let halfW = view.bounds.width * 0.5
+                let halfH = view.bounds.height * 0.5
 
-                let minX = safeFrame.minX
-                let maxX = safeFrame.maxX - dragStartFrameInContainer.width
-                let minY = safeFrame.minY
-                let maxY = safeFrame.maxY - dragStartFrameInContainer.height
+                let minX = safeFrame.minX + halfW
+                let maxX = safeFrame.maxX - halfW
+                let minY = safeFrame.minY + halfH
+                let maxY = safeFrame.maxY - halfH
 
-                // Clamp X
-                if proposedFrame.minX < minX {
-                    transform.tx += (minX - proposedFrame.minX)
-                } else if proposedFrame.minX > maxX {
-                    transform.tx -= (proposedFrame.minX - maxX)
-                }
+                newCenter.x = max(minX, min(newCenter.x, maxX))
+                newCenter.y = max(minY, min(newCenter.y, maxY))
 
-                // Clamp Y
-                if proposedFrame.minY < minY {
-                    transform.ty += (minY - proposedFrame.minY)
-                } else if proposedFrame.minY > maxY {
-                    transform.ty -= (proposedFrame.minY - maxY)
-                }
-
-                view.transform = transform
+                view.center = newCenter
                 view.alpha = 1.0
+
+                g.setTranslation(.zero, in: window)
 
             case .ended, .cancelled, .failed:
                 isUserDraggingBanner = false
-                dragStartTransform = view.transform
 
                 UIView.animate(
                     withDuration: 0.25,
