@@ -1270,42 +1270,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
     }
 
-    private func clampCurrentTransformToBounds() {
-        guard let view = hostController?.view else { return }
-        guard let window else { return }
-        guard let container = view.superview else { return }
-
-        // Make sure geometry is up to date
-        window.layoutIfNeeded()
-        container.layoutIfNeeded()
-
-        // Allowed area in WINDOW coordinates
-        let safeFrameInWindow = window.safeAreaLayoutGuide.layoutFrame
-
-        // Convert allowed area into CONTAINER coordinates (same space as view.frame)
-        let safeFrame = window.convert(safeFrameInWindow, to: container)
-
-        // Current frame is in CONTAINER coordinates
-        let currentFrame = view.frame
-
-        let minX = safeFrame.minX
-        let maxX = safeFrame.maxX - currentFrame.width
-        let minY = safeFrame.minY
-        let maxY = safeFrame.maxY - currentFrame.height
-
-        let clampedX = max(minX, min(currentFrame.minX, maxX))
-        let clampedY = max(minY, min(currentFrame.minY, maxY))
-
-        let dx = clampedX - currentFrame.minX
-        let dy = clampedY - currentFrame.minY
-
-        // Ignore tiny floating-point noise
-        guard abs(dx) > 0.5 || abs(dy) > 0.5 else { return }
-
-        // Apply translation in the SAME coordinate space (container)
-        view.transform = view.transform.translatedBy(x: dx, y: dy)
-    }
-
     /// Handles tap events on the banner host view and forwards them to the configured `onTap` handler.
     @objc private func handleBannerTap() {
         guard !isDismissing else { return }
