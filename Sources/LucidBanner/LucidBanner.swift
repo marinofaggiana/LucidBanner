@@ -1160,14 +1160,23 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                 var transform = dragStartTransform.translatedBy(x: translation.x, y: translation.y)
 
                 // Proposed frame in container coordinates based on the starting frame.
-                let proposedFrame = dragStartFrameInContainer.offsetBy(dx: 0, dy: translation.y)
+                let proposedFrame = dragStartFrameInContainer.offsetBy(dx: translation.x, dy: translation.y)
 
-                // Allowed vertical range (safe-area aware).
+                // Allowed range (safe-area aware).
                 let insets = container.safeAreaInsets
+                let minX = insets.left
+                let maxX = container.bounds.width - insets.right - dragStartFrameInContainer.width
                 let minY = insets.top
                 let maxY = container.bounds.height - insets.bottom - dragStartFrameInContainer.height
 
-                // Clamp by correcting transform.ty so the frame stays inside bounds.
+                // Clamp X by correcting transform.tx.
+                if proposedFrame.minX < minX {
+                    transform.tx += (minX - proposedFrame.minX)
+                } else if proposedFrame.minX > maxX {
+                    transform.tx -= (proposedFrame.minX - maxX)
+                }
+
+                // Clamp Y by correcting transform.ty.
                 if proposedFrame.minY < minY {
                     transform.ty += (minY - proposedFrame.minY)
                 } else if proposedFrame.minY > maxY {
@@ -1178,6 +1187,9 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                 view.alpha = 1.0
 
             case .ended, .cancelled, .failed:
+                // Persist the final transform as the new baseline for the next drag.
+                dragStartTransform = view.transform
+
                 UIView.animate(
                     withDuration: 0.25,
                     delay: 0,
@@ -1194,20 +1206,17 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             return
         }
 
-        // DISMISS MODE: original swipe-to-dismiss behavior.
+        // DISMISS MODE unchanged...
         let translation = g.translation(in: view)
         let dy = translation.y
 
         func applyTransform(for y: CGFloat) {
             switch presentedVPosition {
             case .top:
-                // Dragging up (negative) moves the banner further up
                 view.transform = CGAffineTransform(translationX: 0, y: min(0, y))
             case .bottom:
-                // Dragging down (positive) moves the banner further down
                 view.transform = CGAffineTransform(translationX: 0, y: max(0, y))
             case .center:
-                // For center placement, allow a small vertical offset and scale
                 let t = max(-80, min(80, y))
                 let s = max(0.9, 1.0 - abs(t) / 800.0)
                 view.transform = CGAffineTransform(translationX: 0, y: t).scaledBy(x: s, y: s)
@@ -1224,12 +1233,9 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
             let shouldDismiss: Bool = {
                 switch presentedVPosition {
-                case .top:
-                    return (dy < -30) || (vy < -500)
-                case .bottom:
-                    return (dy > 30) || (vy > 500)
-                case .center:
-                    return abs(dy) > 40 || abs(vy) > 600
+                case .top:    return (dy < -30) || (vy < -500)
+                case .bottom: return (dy > 30) || (vy > 500)
+                case .center: return abs(dy) > 40 || abs(vy) > 600
                 }
             }()
 
@@ -1252,6 +1258,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             break
         }
     }
+
     /// Handles tap events on the banner host view and forwards them to the configured `onTap` handler.
     @objc private func handleBannerTap() {
         guard !isDismissing else { return }
