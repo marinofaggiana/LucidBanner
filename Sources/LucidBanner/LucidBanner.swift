@@ -844,6 +844,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
 
         let window = LucidBannerWindow(windowScene: scene)
+        window.frame = scene.coordinateSpace.bounds
         window.windowLevel = .statusBar + 1
         window.backgroundColor = .clear
         window.isPassthrough = !blocksTouches
@@ -869,7 +870,13 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         window.rootViewController = rootViewController
 
         root.addSubview(scrim)
-        root.addSubview(host.view)
+
+        let dragContainer = UIView()
+        dragContainer.translatesAutoresizingMaskIntoConstraints = false
+        dragContainer.backgroundColor = .clear
+        root.addSubview(dragContainer)
+
+        dragContainer.addSubview(host.view)
         host.view.translatesAutoresizingMaskIntoConstraints = false
 
         let guide = root.safeAreaLayoutGuide
