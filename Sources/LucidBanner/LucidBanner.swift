@@ -132,7 +132,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     private var interactionUnlockTime: CFTimeInterval = 0
     private weak var panGestureRef: UIPanGestureRecognizer?
     private var dragStartTransform: CGAffineTransform = .identity
-    private var dragFrozenBounds: CGRect?
+    private var dragStartFrameInContainer: CGRect = .zero
 
     /// Shared observable state injected into the SwiftUI banner content.
     let state = LucidBannerState(
@@ -1140,33 +1140,44 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         // Prevent interaction for a very short time after show animation
         if CACurrentMediaTime() < interactionUnlockTime { return }
 
-        let translation = g.translation(in: view)
-
         // DRAG MODE: pan repositions the banner instead of dismissing it.
         if draggable {
+            guard let container = view.superview else { return }
+
+            // Use container coordinates for translation to match clamp space.
+            let translation = g.translation(in: container)
+
             switch g.state {
             case .began:
                 // Store the starting transform so we can apply deltas on top of it.
                 dragStartTransform = view.transform
 
-                // Freeze the current bounds to prevent vertical compression near top/bottom edges.
-                dragFrozenBounds = view.bounds
+                // Capture the starting frame in container space for stable math.
+                dragStartFrameInContainer = view.frame
 
             case .changed:
-                // Apply translation relative to the starting transform to avoid cumulative drift.
-                let transform = dragStartTransform.translatedBy(x: translation.x, y: translation.y)
+                // Proposed transform from pan gesture.
+                var transform = dragStartTransform.translatedBy(x: translation.x, y: translation.y)
+
+                // Proposed frame in container coordinates based on the starting frame.
+                let proposedFrame = dragStartFrameInContainer.offsetBy(dx: 0, dy: translation.y)
+
+                // Allowed vertical range (safe-area aware).
+                let insets = container.safeAreaInsets
+                let minY = insets.top
+                let maxY = container.bounds.height - insets.bottom - dragStartFrameInContainer.height
+
+                // Clamp by correcting transform.ty so the frame stays inside bounds.
+                if proposedFrame.minY < minY {
+                    transform.ty += (minY - proposedFrame.minY)
+                } else if proposedFrame.minY > maxY {
+                    transform.ty -= (proposedFrame.minY - maxY)
+                }
+
                 view.transform = transform
                 view.alpha = 1.0
 
-                // Re-apply frozen bounds in case Auto Layout / safe-area triggers a size change.
-                if let frozen = dragFrozenBounds {
-                    view.bounds = frozen
-                }
-
             case .ended, .cancelled, .failed:
-                dragFrozenBounds = nil
-
-                // Small spring to "settle" visually, but keep the final position.
                 UIView.animate(
                     withDuration: 0.25,
                     delay: 0,
@@ -1184,6 +1195,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
 
         // DISMISS MODE: original swipe-to-dismiss behavior.
+        let translation = g.translation(in: view)
         let dy = translation.y
 
         func applyTransform(for y: CGFloat) {
