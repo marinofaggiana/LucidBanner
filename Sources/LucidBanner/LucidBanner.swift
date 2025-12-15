@@ -165,6 +165,12 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             name: UIApplication.didEnterBackgroundNotification,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleSceneGeometryChange),
+            name: UIDevice.orientationDidChangeNotification,
+            object: nil
+        )
     }
 
     @objc private func appDidEnterBackground() {
@@ -174,6 +180,12 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             window?.isHidden = true
             window = nil
             activeToken = nil
+        }
+    }
+
+    @objc private func handleSceneGeometryChange() {
+        DispatchQueue.main.async {
+            self.clampCurrentTransformToBounds()
         }
     }
 
@@ -1137,7 +1149,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     @objc private func handlePanGesture(_ g: UIPanGestureRecognizer) {
         guard let view = hostController?.view else { return }
 
-        // Prevent interaction for a very short time after show animation
         if CACurrentMediaTime() < interactionUnlockTime { return }
 
         // DRAG MODE: pan repositions the banner instead of dismissing it.
@@ -1149,17 +1160,11 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
             switch g.state {
             case .began:
-                // Store the starting transform so we can apply deltas on top of it.
                 dragStartTransform = view.transform
-
-                // Capture the starting frame in container space for stable math.
                 dragStartFrameInContainer = view.frame
 
             case .changed:
-                // Proposed transform from pan gesture.
                 var transform = dragStartTransform.translatedBy(x: translation.x, y: translation.y)
-
-                // Proposed frame in container coordinates based on the starting frame.
                 let proposedFrame = dragStartFrameInContainer.offsetBy(dx: translation.x, dy: translation.y)
 
                 // Allowed range (safe-area aware).
@@ -1169,14 +1174,12 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                 let minY = insets.top
                 let maxY = container.bounds.height - insets.bottom - dragStartFrameInContainer.height
 
-                // Clamp X by correcting transform.tx.
                 if proposedFrame.minX < minX {
                     transform.tx += (minX - proposedFrame.minX)
                 } else if proposedFrame.minX > maxX {
                     transform.tx -= (proposedFrame.minX - maxX)
                 }
 
-                // Clamp Y by correcting transform.ty.
                 if proposedFrame.minY < minY {
                     transform.ty += (minY - proposedFrame.minY)
                 } else if proposedFrame.minY > maxY {
@@ -1187,7 +1190,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                 view.alpha = 1.0
 
             case .ended, .cancelled, .failed:
-                // Persist the final transform as the new baseline for the next drag.
                 dragStartTransform = view.transform
 
                 UIView.animate(
@@ -1256,6 +1258,28 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
         default:
             break
+        }
+    }
+
+    private func clampCurrentTransformToBounds() {
+        guard let view = hostController?.view else { return }
+        guard let container = view.superview else { return }
+        let currentFrame = view.frame
+
+        let insets = container.safeAreaInsets
+        let minX = insets.left
+        let maxX = container.bounds.width - insets.right - currentFrame.width
+        let minY = insets.top
+        let maxY = container.bounds.height - insets.bottom - currentFrame.height
+
+        let clampedOriginX = max(minX, min(currentFrame.minX, maxX))
+        let clampedOriginY = max(minY, min(currentFrame.minY, maxY))
+
+        let dx = clampedOriginX - currentFrame.minX
+        let dy = clampedOriginY - currentFrame.minY
+
+        if dx != 0 || dy != 0 {
+            view.transform = view.transform.translatedBy(x: dx, y: dy)
         }
     }
 
