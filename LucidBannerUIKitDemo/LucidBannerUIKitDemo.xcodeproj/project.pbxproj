@@ -1,0 +1,406 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		F7F849582EF44D8000FAF123 /* LucidBannerStage.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7F849522EF44D8000FAF123 /* LucidBannerStage.swift */; };
+		F7F849592EF44D8000FAF123 /* LucidBannerMinimizeCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7F849512EF44D8000FAF123 /* LucidBannerMinimizeCoordinator.swift */; };
+		F7F8495A2EF44D8000FAF123 /* LucidBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7F849502EF44D8000FAF123 /* LucidBanner.swift */; };
+		F7F8495B2EF44D8000FAF123 /* LucidBannerStage+State.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7F849532EF44D8000FAF123 /* LucidBannerStage+State.swift */; };
+		F7F8495C2EF44D8000FAF123 /* LucidBannerState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7F849542EF44D8000FAF123 /* LucidBannerState.swift */; };
+		F7F8495D2EF44D8000FAF123 /* LucidBannerWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7F849552EF44D8000FAF123 /* LucidBannerWindow.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		F765EE922EF44AC1001FDB8A /* LucidBannerUIKitDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LucidBannerUIKitDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F7F849502EF44D8000FAF123 /* LucidBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LucidBanner.swift; sourceTree = "<group>"; };
+		F7F849512EF44D8000FAF123 /* LucidBannerMinimizeCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LucidBannerMinimizeCoordinator.swift; sourceTree = "<group>"; };
+		F7F849522EF44D8000FAF123 /* LucidBannerStage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LucidBannerStage.swift; sourceTree = "<group>"; };
+		F7F849532EF44D8000FAF123 /* LucidBannerStage+State.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LucidBannerStage+State.swift"; sourceTree = "<group>"; };
+		F7F849542EF44D8000FAF123 /* LucidBannerState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LucidBannerState.swift; sourceTree = "<group>"; };
+		F7F849552EF44D8000FAF123 /* LucidBannerWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LucidBannerWindow.swift; sourceTree = "<group>"; };
+		F7F8495F2EF44ECE00FAF123 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		F765EEA42EF44AC2001FDB8A /* Exceptions for "LucidBannerUIKitDemo" folder in "LucidBannerUIKitDemo" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = F765EE912EF44AC1001FDB8A /* LucidBannerUIKitDemo */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		F765EE942EF44AC1001FDB8A /* LucidBannerUIKitDemo */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				F765EEA42EF44AC2001FDB8A /* Exceptions for "LucidBannerUIKitDemo" folder in "LucidBannerUIKitDemo" target */,
+			);
+			path = LucidBannerUIKitDemo;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		F765EE8F2EF44AC1001FDB8A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		F765EE892EF44AC1001FDB8A = {
+			isa = PBXGroup;
+			children = (
+				F7F849572EF44D8000FAF123 /* Sources */,
+				F765EE942EF44AC1001FDB8A /* LucidBannerUIKitDemo */,
+				F7F8495E2EF44ECE00FAF123 /* Frameworks */,
+				F765EE932EF44AC1001FDB8A /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		F765EE932EF44AC1001FDB8A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				F765EE922EF44AC1001FDB8A /* LucidBannerUIKitDemo.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F7F849562EF44D8000FAF123 /* LucidBanner */ = {
+			isa = PBXGroup;
+			children = (
+				F7F849502EF44D8000FAF123 /* LucidBanner.swift */,
+				F7F849512EF44D8000FAF123 /* LucidBannerMinimizeCoordinator.swift */,
+				F7F849522EF44D8000FAF123 /* LucidBannerStage.swift */,
+				F7F849532EF44D8000FAF123 /* LucidBannerStage+State.swift */,
+				F7F849542EF44D8000FAF123 /* LucidBannerState.swift */,
+				F7F849552EF44D8000FAF123 /* LucidBannerWindow.swift */,
+			);
+			path = LucidBanner;
+			sourceTree = "<group>";
+		};
+		F7F849572EF44D8000FAF123 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				F7F849562EF44D8000FAF123 /* LucidBanner */,
+			);
+			name = Sources;
+			path = ../Sources;
+			sourceTree = SOURCE_ROOT;
+		};
+		F7F8495E2EF44ECE00FAF123 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				F7F8495F2EF44ECE00FAF123 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		F765EE912EF44AC1001FDB8A /* LucidBannerUIKitDemo */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F765EEA52EF44AC2001FDB8A /* Build configuration list for PBXNativeTarget "LucidBannerUIKitDemo" */;
+			buildPhases = (
+				F765EE8E2EF44AC1001FDB8A /* Sources */,
+				F765EE8F2EF44AC1001FDB8A /* Frameworks */,
+				F765EE902EF44AC1001FDB8A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				F765EE942EF44AC1001FDB8A /* LucidBannerUIKitDemo */,
+			);
+			name = LucidBannerUIKitDemo;
+			packageProductDependencies = (
+			);
+			productName = LucidBannerUIKitDemo;
+			productReference = F765EE922EF44AC1001FDB8A /* LucidBannerUIKitDemo.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F765EE8A2EF44AC1001FDB8A /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2610;
+				LastUpgradeCheck = 2610;
+				TargetAttributes = {
+					F765EE912EF44AC1001FDB8A = {
+						CreatedOnToolsVersion = 26.1;
+					};
+				};
+			};
+			buildConfigurationList = F765EE8D2EF44AC1001FDB8A /* Build configuration list for PBXProject "LucidBannerUIKitDemo" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = F765EE892EF44AC1001FDB8A;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = F765EE932EF44AC1001FDB8A /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				F765EE912EF44AC1001FDB8A /* LucidBannerUIKitDemo */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		F765EE902EF44AC1001FDB8A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		F765EE8E2EF44AC1001FDB8A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F7F849582EF44D8000FAF123 /* LucidBannerStage.swift in Sources */,
+				F7F849592EF44D8000FAF123 /* LucidBannerMinimizeCoordinator.swift in Sources */,
+				F7F8495A2EF44D8000FAF123 /* LucidBanner.swift in Sources */,
+				F7F8495B2EF44D8000FAF123 /* LucidBannerStage+State.swift in Sources */,
+				F7F8495C2EF44D8000FAF123 /* LucidBannerState.swift in Sources */,
+				F7F8495D2EF44D8000FAF123 /* LucidBannerWindow.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		F765EEA62EF44AC2001FDB8A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = NKUJUXUJ3B;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LucidBannerUIKitDemo/Info.plist;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+				INFOPLIST_KEY_UIMainStoryboardFile = Main;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = LucidBanner.LucidBannerUIKitDemo;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		F765EEA72EF44AC2001FDB8A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = NKUJUXUJ3B;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LucidBannerUIKitDemo/Info.plist;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+				INFOPLIST_KEY_UIMainStoryboardFile = Main;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = LucidBanner.LucidBannerUIKitDemo;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		F765EEA82EF44AC2001FDB8A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = NKUJUXUJ3B;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		F765EEA92EF44AC2001FDB8A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = NKUJUXUJ3B;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		F765EE8D2EF44AC1001FDB8A /* Build configuration list for PBXProject "LucidBannerUIKitDemo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F765EEA82EF44AC2001FDB8A /* Debug */,
+				F765EEA92EF44AC2001FDB8A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F765EEA52EF44AC2001FDB8A /* Build configuration list for PBXNativeTarget "LucidBannerUIKitDemo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F765EEA62EF44AC2001FDB8A /* Debug */,
+				F765EEA72EF44AC2001FDB8A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = F765EE8A2EF44AC1001FDB8A /* Project object */;
+}

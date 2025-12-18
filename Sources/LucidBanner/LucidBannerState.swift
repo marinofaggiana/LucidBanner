@@ -11,6 +11,7 @@
 //
 
 import SwiftUI
+import Combine
 
 /// Shared observable state model used by LucidBanner.
 ///
