@@ -10,9 +10,17 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         options connectionOptions: UIScene.ConnectionOptions
     ) {
         guard let windowScene = scene as? UIWindowScene else { return }
+        SceneStore.shared.scene = windowScene
+        
         let window = UIWindow(windowScene: windowScene)
-        window.rootViewController = DemoViewController()
+        window.rootViewController = ViewController()
         window.makeKeyAndVisible()
         self.window = window
     }
+}
+
+final class SceneStore {
+    static let shared = SceneStore()
+    private init() {}
+    weak var scene: UIWindowScene?
 }

@@ -7,58 +7,47 @@ import SwiftUI
 
 @MainActor
 func showUploadBanner(scene: UIWindowScene?,
-                      vPosition: LucidBanner.VerticalPosition = .center,
-                      hAlignment: LucidBanner.HorizontalAlignment = .center,
-                      verticalMargin: CGFloat = 0,
-                      blocksTouches: Bool = false,
-                      draggable: Bool = false,
                       stage: LucidBanner.Stage? = nil,
-                      policy: LucidBanner.ShowPolicy = .drop,
-                      allowMinimizeOnTap: Bool = false,
                       onButtonTap: (() -> Void)? = nil) -> Int? {
     let token = LucidBanner.shared.show(
         scene: scene,
-        vPosition: vPosition,
-        hAlignment: hAlignment,
-        verticalMargin: verticalMargin,
-        blocksTouches: blocksTouches,
-        draggable: draggable,
+        blocksTouches: false,
+        draggable: true,
         stage: stage,
-        policy: policy
+        policy: .drop
     ) { state in
-        UploadBannerView(state: state,
-                         allowMinimizeOnTap: allowMinimizeOnTap,
-                         onButtonTap: onButtonTap)
+        UploadBanner(state: state,
+                     allowMinimizeOnTap: true,
+                     onButtonTap: onButtonTap)
     }
 
-    if allowMinimizeOnTap {
-        LucidBannerMinimizeCoordinator.shared.register(token: token) { context in
-            let bounds = context.bounds
-            var height: CGFloat = 0
-            let over: CGFloat = 30
-            if let scene,
-               let window = scene.windows.first {
-                let regularLayout = (window.rootViewController?.traitCollection.horizontalSizeClass == .regular)
-                let iPad = UIDevice.current.userInterfaceIdiom == .pad
-                if iPad, regularLayout {
-                    height = over
-                } else {
-                    height = context.safeAreaInsets.bottom + over
-                }
+    LucidBannerMinimizeCoordinator.shared.register(token: token) { context in
+        let bounds = context.bounds
+        var height: CGFloat = 0
+        let over: CGFloat = 30
+        if let scene,
+           let window = scene.windows.first {
+            let regularLayout = (window.rootViewController?.traitCollection.horizontalSizeClass == .regular)
+            let iPad = UIDevice.current.userInterfaceIdiom == .pad
+            if iPad, regularLayout {
+                height = over
+            } else {
+                height = context.safeAreaInsets.bottom + over
             }
-
-            return CGPoint(
-                x: bounds.midX,
-                y: bounds.maxY - height
-            )
         }
+
+        return CGPoint(
+            x: bounds.midX,
+            y: bounds.maxY - height
+        )
     }
+
     return token
 }
 
 // MARK: - SwiftUI
 
-struct UploadBannerView: View {
+struct UploadBanner: View {
     @ObservedObject var state: LucidBannerState
     @State var trigger = true
     let onButtonTap: (() -> Void)?
@@ -339,38 +328,5 @@ public extension View {
         case .none:
             self
         }
-    }
-}
-
-// MARK: - Preview
-
-#Preview {
-    // Create a mutable preview state
-    let state = LucidBannerState(
-        title: "Uploading…",
-        subtitle: "Minimized style preview",
-        systemImage: "arrow.up.circle",
-        imageAnimation: .none,
-        progress: 0.71,
-        stage: "button"
-    )
-
-    state.isMinimized = false
-
-    return ZStack {
-        Text(
-            Array(0...500)
-                .map(String.init)
-                .joined(separator: "  ")
-            )
-            .font(.system(size: 16, design: .monospaced))
-            .foregroundStyle(.primary)
-            .padding()
-
-        UploadBannerView(
-            state: state,
-            allowMinimizeOnTap: false
-        )
-        .padding()
     }
 }
