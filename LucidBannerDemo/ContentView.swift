@@ -31,7 +31,7 @@ struct ContentView: View {
             .first { $0.activationState == .foregroundActive }
     }
 
-    @State private var lastToken: Int = 0
+    @State private var lastToken: Int?
 
     var body: some View {
         VStack(spacing: 20) {
@@ -46,11 +46,7 @@ struct ContentView: View {
                     systemImage: "arrowshape.up.circle",
                     imageAnimation: .breathe,
                     vPosition: .top,
-                    autoDismissAfter: 3.0,
-                    onTap: { token, stage in
-                        print("Tapped banner token:", token, "stage:", stage ?? "nil")
-                    }
-                ) { state in
+                    autoDismissAfter: 3.0) { state in
                     MinimalBannerView(state: state)
                 }
             }
@@ -73,13 +69,12 @@ struct ContentView: View {
             Button("Update Progress") {
                 LucidBanner.shared.update(
                     progress: 0.75,
-                    stage: "uploading",
                     for: lastToken
                 )
             }
 
             Button("Dismiss") {
-                LucidBanner.shared.dismiss(for: lastToken)
+                LucidBanner.shared.dismiss()
             }
         }
         .buttonStyle(.borderedProminent)

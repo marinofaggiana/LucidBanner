@@ -31,22 +31,19 @@ func showUploadBanner(scene: UIWindowScene?,
                          onButtonTap: onButtonTap)
     }
 
-#if !EXTENSION
     if allowMinimizeOnTap {
         LucidBannerMinimizeCoordinator.shared.register(token: token) { context in
             let bounds = context.bounds
-            let controller = SceneManager.shared.getController(scene: scene)
             var height: CGFloat = 0
             let over: CGFloat = 30
             if let scene,
-               let controller,
                let window = scene.windows.first {
                 let regularLayout = (window.rootViewController?.traitCollection.horizontalSizeClass == .regular)
                 let iPad = UIDevice.current.userInterfaceIdiom == .pad
                 if iPad, regularLayout {
                     height = over
                 } else {
-                    height = controller.barHeightBottom + context.safeAreaInsets.bottom + over
+                    height = context.safeAreaInsets.bottom + over
                 }
             }
 
@@ -56,7 +53,6 @@ func showUploadBanner(scene: UIWindowScene?,
             )
         }
     }
-#endif
     return token
 }
 
@@ -157,7 +153,7 @@ struct UploadBannerView: View {
                             Image(systemName: systemImage)
                                 .applyBannerAnimation(state.imageAnimation)
                                 .font(.system(size: 30, weight: .regular))
-                                .foregroundStyle(Color(uiColor: NCBrandColor.shared.customer))
+                                .foregroundStyle(Color(uiColor: .blue))
                         }
 
                         VStack(alignment: .leading, spacing: 7) {
