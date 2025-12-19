@@ -34,7 +34,7 @@ final class ViewController: UIViewController {
     private func simulateUploadProgress(token: Int?) {
         var progress: Double = 0.0
 
-        let timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { timer in
+        let timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { timer in
             progress += 0.04
 
             if progress >= 1.0 {
