@@ -32,10 +32,14 @@ open class LucidBannerState: ObservableObject {
     /// Optional small text used for status or additional context.
     @Published public var footnote: String?
 
+    @Published var textColor: Color
+
     // MARK: - Icon & animation
 
     /// System symbol name used for the leading icon (e.g. `"arrow.up.circle"`).
     @Published public var systemImage: String?
+
+    @Published var imageColor: Color
 
     /// Current animation style applied to the banner icon.
     @Published public var imageAnimation: LucidBanner.LucidBannerAnimationStyle
@@ -60,6 +64,8 @@ open class LucidBannerState: ObservableObject {
     /// When `true`, the banner can be dragged freely instead of only swiped to dismiss.
     @Published public var draggable: Bool = false
 
+    @Published var backgroundColor: Color
+
     /// Creates a new shared state object for a LucidBanner.
     ///
     /// Empty strings for textual fields are automatically normalized to `nil`
@@ -76,16 +82,22 @@ open class LucidBannerState: ObservableObject {
     public init(title: String? = nil,
                 subtitle: String? = nil,
                 footnote: String? = nil,
+                textColor: Color = .primary,
                 systemImage: String? = nil,
                 imageAnimation: LucidBanner.LucidBannerAnimationStyle,
+                imageColor: Color = .primary,
+                backgroundColor: Color = .clear,
                 progress: Double? = nil,
                 draggable: Bool = false,
                 stage: String? = nil) {
         self.title = (title?.isEmpty == true) ? nil : title
         self.subtitle = (subtitle?.isEmpty == true) ? nil : subtitle
         self.footnote = (footnote?.isEmpty == true) ? nil : footnote
+        self.textColor = textColor
         self.systemImage = systemImage
         self.imageAnimation = imageAnimation
+        self.imageColor = imageColor
+        self.backgroundColor = backgroundColor
         self.progress = progress
         self.draggable = draggable
         self.stage = stage

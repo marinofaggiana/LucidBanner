@@ -81,8 +81,11 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         let title: String?
         let subtitle: String?
         let footnote: String?
+        let textColor: Color?
         let systemImage: String?
         let imageAnimation: LucidBannerAnimationStyle
+        let imageColor: Color?
+        let backgroundColor: Color?
         let progress: Double?
         let vPosition: VerticalPosition
         let hAlignment: HorizontalAlignment
@@ -140,8 +143,11 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         title: nil,
         subtitle: nil,
         footnote: nil,
+        textColor: .primary,
         systemImage: nil,
         imageAnimation: .none,
+        imageColor: .primary,
+        backgroundColor: .clear,
         progress: nil,
         draggable: false,
         stage: nil
@@ -211,8 +217,11 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                                     title: String? = nil,
                                     subtitle: String? = nil,
                                     footnote: String? = nil,
+                                    textColor: Color? = nil,
                                     systemImage: String? = nil,
                                     imageAnimation: LucidBannerAnimationStyle = .none,
+                                    imageColor: Color? = nil,
+                                    backgroundColor: Color? = nil,
                                     progress: Double? = nil,
                                     vPosition: VerticalPosition = .center,
                                     hAlignment: HorizontalAlignment = .center,
@@ -270,8 +279,11 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             title: normalizedTitle,
             subtitle: normalizedSubtitle,
             footnote: normalizedFootnote,
+            textColor: textColor,
             systemImage: systemImage,
             imageAnimation: imageAnimation,
+            imageColor: imageColor,
+            backgroundColor: backgroundColor,
             progress: normalizedProgress,
             vPosition: vPosition,
             hAlignment: hAlignment,
@@ -331,8 +343,11 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     public func update(title: String? = nil,
                        subtitle: String? = nil,
                        footnote: String? = nil,
+                       textColor: Color? = nil,
                        systemImage: String? = nil,
                        imageAnimation: LucidBanner.LucidBannerAnimationStyle? = nil,
+                       imageColor: Color? = nil,
+                       backgroundColor: Color? = nil,
                        progress: Double? = nil,
                        stage: Stage? = nil,
                        autoDismissAfter: TimeInterval? = nil,
@@ -367,6 +382,10 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             state.footnote = newValue
         }
 
+        if let textColor {
+            state.textColor = textColor
+        }
+
         // Icon & animation
         if let systemImage {
             if systemImage != state.systemImage { needsRelayout = true }
@@ -375,6 +394,15 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
         if let imageAnimation {
             state.imageAnimation = imageAnimation
+        }
+
+        if let imageColor {
+            state.imageColor = imageColor
+        }
+
+        // Background color
+        if let backgroundColor {
+            state.backgroundColor = backgroundColor
         }
 
         // Progress
@@ -786,8 +814,11 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         state.title = p.title
         state.subtitle = p.subtitle
         state.footnote = p.footnote
+        state.textColor = p.textColor ?? .primary
         state.systemImage = p.systemImage
         state.imageAnimation = p.imageAnimation
+        state.imageColor = p.imageColor ?? .primary
+        state.backgroundColor = p.backgroundColor ?? .clear
         state.progress = p.progress
         state.stage = p.stage
         state.draggable = p.draggable
