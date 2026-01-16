@@ -32,14 +32,14 @@ open class LucidBannerState: ObservableObject {
     /// Optional small text used for status or additional context.
     @Published public var footnote: String?
 
-    @Published var textColor: Color
+    @Published public var textColor: Color
 
     // MARK: - Icon & animation
 
     /// System symbol name used for the leading icon (e.g. `"arrow.up.circle"`).
     @Published public var systemImage: String?
 
-    @Published var imageColor: Color
+    @Published public var imageColor: Color
 
     /// Current animation style applied to the banner icon.
     @Published public var imageAnimation: LucidBanner.LucidBannerAnimationStyle
@@ -64,7 +64,7 @@ open class LucidBannerState: ObservableObject {
     /// When `true`, the banner can be dragged freely instead of only swiped to dismiss.
     @Published public var draggable: Bool = false
 
-    @Published var backgroundColor: Color
+    @Published public var backgroundColor: Color
 
     /// Creates a new shared state object for a LucidBanner.
     ///
