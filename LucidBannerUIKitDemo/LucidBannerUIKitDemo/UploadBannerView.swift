@@ -309,6 +309,8 @@ public extension View {
                     self.symbolEffect(.scale, options: .repeat(.continuous))
                 case .scaleUpbyLayer:
                     self.symbolEffect(.scale.up.byLayer, options: .repeat(.continuous))
+                case .variableColor
+                    self.symbolEffect(.variableColor, options: .repeat(.continuous))
                 default:
                     self
                 }

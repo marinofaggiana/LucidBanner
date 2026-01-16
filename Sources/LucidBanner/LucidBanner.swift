@@ -58,6 +58,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         case wiggle
         case scale
         case scaleUpbyLayer
+        case variableColor
     }
 
     /// Vertical placement of the banner inside the window.
