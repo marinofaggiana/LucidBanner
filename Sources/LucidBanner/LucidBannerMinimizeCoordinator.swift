@@ -237,14 +237,14 @@ public final class LucidBannerMinimizeCoordinator {
 
         state.isMinimized = false
 
-        if state.draggable {
+        if state.payload.draggable {
             LucidBanner.shared.setDraggingEnabled(true, for: token)
         }
 
         // Re-measure for the full SwiftUI layout.
         LucidBanner.shared.requestRelayout(animated: false)
 
-        // Let LucidBanner restore the canonical position.
+        // Restore canonical position.
         LucidBanner.shared.resetPosition(for: token, animated: true)
     }
 

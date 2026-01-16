@@ -78,25 +78,8 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     // Pending payload used for queueing
     private struct PendingShow {
         let scene: UIWindowScene?
-        let title: String?
-        let subtitle: String?
-        let footnote: String?
-        let textColor: Color?
-        let systemImage: String?
-        let imageAnimation: LucidBannerAnimationStyle
-        let imageColor: Color?
-        let backgroundColor: Color?
-        let progress: Double?
-        let vPosition: VerticalPosition
-        let hAlignment: HorizontalAlignment
-        let horizontalMargin: CGFloat
-        let verticalMargin: CGFloat
-        let autoDismissAfter: TimeInterval
-        let swipeToDismiss: Bool
-        let blocksTouches: Bool
-        let draggable: Bool
-        let stage: String?
-        let onTap: ((_ token: Int?, _ stage: String?) -> Void)?
+        let payload: LucidBannerPayload
+        let onTap: ((_ token: Int?, _ stage: LucidBanner.Stage?) -> Void)?
         let viewUI: (LucidBannerState) -> AnyView
         let token: Int
     }
@@ -140,17 +123,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
     /// Shared observable state injected into the SwiftUI banner content.
     let state = LucidBannerState(
-        title: nil,
-        subtitle: nil,
-        footnote: nil,
-        textColor: .primary,
-        systemImage: nil,
-        imageAnimation: .none,
-        imageColor: .primary,
-        backgroundColor: .clear,
-        progress: nil,
-        draggable: false,
-        stage: nil
+        payload: LucidBannerPayload()
     )
 
     // Config
@@ -161,7 +134,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     // Token/revision
     private var generation: Int = 0
     private var activeToken: Int?
-    private var onTap: ((_ token: Int?, _ stage: String?) -> Void)?
+    private var onTap: ((_ token: Int?, _ stage: LucidBanner.Stage?) -> Void)?
 
     // MARK: - Init
     override public init() {
@@ -186,114 +159,31 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
     // MARK: - Public API
 
-    /// Presents a new Lucid banner in the specified scene.
-    ///
-    /// The banner content is provided by a SwiftUI view builder that receives the shared `LucidBannerState`.
-    /// If another banner is already visible, the behavior depends on `policy` (`replace`, `enqueue`, `drop`).
-    ///
     /// - Parameters:
-    ///   - scene: Target `UIWindowScene` where the banner window should be attached.
-    ///   - title: Optional title text for the banner.
-    ///   - subtitle: Optional subtitle text.
-    ///   - footnote: Optional footnote text (smaller status text).
-    ///   - systemImage: Optional SF Symbol name for the leading icon.
-    ///   - imageAnimation: Icon animation style.
-    ///   - progress: Optional progress value in `0...1` range.
-    ///   - vPosition: Vertical position (top, center, bottom).
-    ///   - hAlignment: Horizontal alignment (left, center, right) for internal layout decisions.
-    ///   - horizontalMargin: Horizontal margin from safe area edges.
-    ///   - verticalMargin: Vertical margin from safe area edges.
-    ///   - autoDismissAfter: Optional auto-dismiss delay in seconds (0 disables).
-    ///   - swipeToDismiss: Enables swipe-to-dismiss behavior when `true`.
-    ///   - blocksTouches: When `true`, touches behind the banner are blocked by a scrim.
-    ///   - draggable: When `true`, the banner can be dragged freely instead of only swiped to dismiss.
-    ///   - stage: Optional semantic stage value attached to the state.
+    ///   - scene: Target UIWindowScene where the banner should be attached.
+    ///   - payload: Descriptive payload defining content, appearance and interaction.
     ///   - policy: Show policy when another banner is already visible.
-    ///   - onTap: Optional tap handler that receives the banner token and stage.
+    ///   - onTap: Optional tap handler receiving banner token and stage.
     ///   - content: SwiftUI content builder for the banner body.
-    /// - Returns: A token identifying this banner instance.
     @discardableResult
     public func show<Content: View>(scene: UIWindowScene?,
-                                    title: String? = nil,
-                                    subtitle: String? = nil,
-                                    footnote: String? = nil,
-                                    textColor: Color? = nil,
-                                    systemImage: String? = nil,
-                                    imageAnimation: LucidBannerAnimationStyle = .none,
-                                    imageColor: Color? = nil,
-                                    backgroundColor: Color? = nil,
-                                    progress: Double? = nil,
-                                    vPosition: VerticalPosition = .center,
-                                    hAlignment: HorizontalAlignment = .center,
-                                    horizontalMargin: CGFloat = 12,
-                                    verticalMargin: CGFloat = 10,
-                                    autoDismissAfter: TimeInterval = 0,
-                                    swipeToDismiss: Bool = false,
-                                    blocksTouches: Bool = false,
-                                    draggable: Bool = false,
-                                    stage: Stage? = nil,
+                                    payload: LucidBannerPayload,
                                     policy: ShowPolicy = .enqueue,
-                                    onTap: ((_ token: Int?, _ stage: String?) -> Void)? = nil,
-                                    @ViewBuilder content: @escaping (LucidBannerState) -> Content) -> Int? {
-        // Normalize text fields to avoid showing empty strings.
-        let normalizedTitle: String? = {
-            guard let text = title?.trimmingCharacters(in: .whitespacesAndNewlines),
-                  !text.isEmpty else {
-                return nil
-            }
-            return text
-        }()
-
-        let normalizedSubtitle: String? = {
-            guard let text = subtitle?.trimmingCharacters(in: .whitespacesAndNewlines),
-                  !text.isEmpty else {
-                return nil
-            }
-            return text
-        }()
-
-        let normalizedFootnote: String? = {
-            guard let text = footnote?.trimmingCharacters(in: .whitespacesAndNewlines),
-                  !text.isEmpty else {
-                return nil
-            }
-            return text
-        }()
-
-        let normalizedProgress: Double? = {
-            guard let progress else { return nil }
-            let clamped = max(0, min(1, progress))
-            return clamped
-        }()
-
+                                    onTap: ((_ token: Int?, _ stage: LucidBanner.Stage?) -> Void)? = nil,
+                                    @ViewBuilder content: @escaping (LucidBannerState) -> Content) -> Int {
         // Prepare view factory bound to the shared state
-        let viewFactory: (LucidBannerState) -> AnyView = { s in AnyView(content(s)) }
+        let viewFactory: (LucidBannerState) -> AnyView = {
+            AnyView(content($0))
+        }
 
         // Generate a token
         generation &+= 1
         let newToken = generation
 
-        // Build pending payload
+        // Build pending request
         let pending = PendingShow(
             scene: scene,
-            title: normalizedTitle,
-            subtitle: normalizedSubtitle,
-            footnote: normalizedFootnote,
-            textColor: textColor,
-            systemImage: systemImage,
-            imageAnimation: imageAnimation,
-            imageColor: imageColor,
-            backgroundColor: backgroundColor,
-            progress: normalizedProgress,
-            vPosition: vPosition,
-            hAlignment: hAlignment,
-            horizontalMargin: horizontalMargin,
-            verticalMargin: verticalMargin,
-            autoDismissAfter: autoDismissAfter,
-            swipeToDismiss: swipeToDismiss,
-            blocksTouches: blocksTouches,
-            draggable: draggable,
-            stage: stage?.rawValue,
+            payload: payload,
             onTap: onTap,
             viewUI: viewFactory,
             token: newToken
@@ -303,10 +193,12 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         if window != nil || isPresenting || isDismissing {
             switch policy {
             case .drop:
-                return activeToken
+                return activeToken ?? newToken
+
             case .enqueue:
                 queue.append(pending)
                 return newToken
+
             case .replace:
                 queue.removeAll()
                 queue.append(pending)
@@ -315,12 +207,13 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             }
         }
 
-        // No banner visible: present now
+        // No banner visible: present immediately
         activeToken = newToken
-        presentedVPosition = vPosition
+        presentedVPosition = payload.vPosition
         applyPending(pending)
         isPresenting = true
         startShow(with: pending.viewUI)
+
         return newToken
     }
 
@@ -330,123 +223,43 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// Some changes (like text and progress visibility) can trigger a relayout.
     ///
     /// - Parameters:
-    ///   - title: Optional new title.
-    ///   - subtitle: Optional new subtitle.
-    ///   - footnote: Optional new footnote text.
-    ///   - systemImage: Optional new SF Symbol name.
-    ///   - imageAnimation: Optional new icon animation style.
-    ///   - progress: Optional new progress (`0...1`).
-    ///   - stage: Optional new stage value.
-    ///   - autoDismissAfter: Optional new auto-dismiss delay; `0` disables auto-dismiss.
-    ///   - onTap: Optional new tap handler.
+    ///   - payload: Descriptive payload.update defining content, appearance and interaction.
     ///   - token: Optional banner token to restrict the update to a specific banner.
-    public func update(title: String? = nil,
-                       subtitle: String? = nil,
-                       footnote: String? = nil,
-                       textColor: Color? = nil,
-                       systemImage: String? = nil,
-                       imageAnimation: LucidBanner.LucidBannerAnimationStyle? = nil,
-                       imageColor: Color? = nil,
-                       backgroundColor: Color? = nil,
-                       progress: Double? = nil,
-                       stage: Stage? = nil,
-                       autoDismissAfter: TimeInterval? = nil,
-                       onTap: ((_ token: Int?, _ stage: String?) -> Void)? = nil,
-                       for token: Int? = nil) {
+    public func update(
+        payload patch: LucidBannerPayload.Update,
+        for token: Int? = nil
+    ) {
         guard window != nil, (token == nil || token == activeToken) else {
             return
         }
 
-        var needsRelayout = false
-        var shouldRescheduleAutoDismiss = false
+        let oldPayload = state.payload
+        var newPayload = oldPayload
+        patch.merge(into: &newPayload)
 
-        // Text
-        if let title {
-            let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-            let newValue = trimmed.isEmpty ? nil : trimmed
-            if newValue != state.title { needsRelayout = true }
-            state.title = newValue
-        }
+        let needsRelayout =
+            oldPayload.title != newPayload.title ||
+            oldPayload.subtitle != newPayload.subtitle ||
+            oldPayload.footnote != newPayload.footnote ||
+            oldPayload.systemImage != newPayload.systemImage ||
+            (oldPayload.progress != nil) != (newPayload.progress != nil) ||
+            oldPayload.vPosition != newPayload.vPosition ||
+            oldPayload.hAlignment != newPayload.hAlignment ||
+            oldPayload.horizontalMargin != newPayload.horizontalMargin ||
+            oldPayload.verticalMargin != newPayload.verticalMargin
 
-        if let subtitle {
-            let trimmed = subtitle.trimmingCharacters(in: .whitespacesAndNewlines)
-            let newValue = trimmed.isEmpty ? nil : trimmed
-            if newValue != state.subtitle { needsRelayout = true }
-            state.subtitle = newValue
-        }
+        state.payload = newPayload
 
-        if let footnote {
-            let trimmed = footnote.trimmingCharacters(in: .whitespacesAndNewlines)
-            let newValue = trimmed.isEmpty ? nil : trimmed
-            if newValue != state.footnote { needsRelayout = true }
-            state.footnote = newValue
-        }
+        // Side effects
+        blocksTouches = newPayload.blocksTouches
+        swipeToDismiss = newPayload.blocksTouches ? false : newPayload.swipeToDismiss
+        draggable = newPayload.draggable && !newPayload.blocksTouches
+        panGestureRef?.isEnabled = draggable
 
-        if let textColor {
-            state.textColor = textColor
-        }
+        autoDismissAfter = newPayload.autoDismissAfter
 
-        // Icon & animation
-        if let systemImage {
-            if systemImage != state.systemImage { needsRelayout = true }
-            state.systemImage = systemImage
-        }
+        guard let window else { return }
 
-        if let imageAnimation {
-            state.imageAnimation = imageAnimation
-        }
-
-        if let imageColor {
-            state.imageColor = imageColor
-        }
-
-        // Background color
-        if let backgroundColor {
-            state.backgroundColor = backgroundColor
-        }
-
-        // Progress
-        if let progress {
-            let clamped = max(0, min(1, progress))
-            let newProgress: Double? = clamped
-
-            let oldVisible = (state.progress != nil)
-            let newVisible = (newProgress != nil)
-
-            if oldVisible != newVisible {
-                needsRelayout = true
-            }
-
-            state.progress = newProgress
-        }
-
-        // Stage, autoDismissAfter, tap
-        if let stage = stage?.rawValue {
-            if stage != state.stage { needsRelayout = true }
-            state.stage = stage
-        }
-        if let autoDismissAfter {
-            self.autoDismissAfter = autoDismissAfter
-
-            if autoDismissAfter > 0 {
-                // Enable or change auto-dismiss: reschedule timer from now
-                shouldRescheduleAutoDismiss = true
-            } else {
-                // Disable auto-dismiss (0 or negative)
-                dismissTimer?.cancel()
-                dismissTimer = nil
-            }
-        }
-
-        if let onTap {
-            self.onTap = onTap
-        }
-
-        guard let window = self.window else {
-            return
-        }
-
-        // Layout / remeasure
         if needsRelayout {
             if isAnimatingIn || isDismissing {
                 pendingRelayout = true
@@ -459,9 +272,11 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             }
         }
 
-        // Reschedule auto-dismiss if needed
-        if shouldRescheduleAutoDismiss {
+        if autoDismissAfter > 0 {
             scheduleAutoDismiss()
+        } else {
+            dismissTimer?.cancel()
+            dismissTimer = nil
         }
     }
 
@@ -807,33 +622,37 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     ///
     /// - Parameter p: Pending payload describing the banner to be shown.
     private func applyPending(_ p: PendingShow) {
+
+        let payload = p.payload
+
+        // Scene
         scene = p.scene
 
-        // Reset layout-related flags so each banner starts clean
+        // Reset per-banner transient state
         state.isMinimized = false
-        state.title = p.title
-        state.subtitle = p.subtitle
-        state.footnote = p.footnote
-        state.textColor = p.textColor ?? .primary
-        state.systemImage = p.systemImage
-        state.imageAnimation = p.imageAnimation
-        state.imageColor = p.imageColor ?? .primary
-        state.backgroundColor = p.backgroundColor ?? .clear
-        state.progress = p.progress
-        state.stage = p.stage
-        state.draggable = p.draggable
 
-        autoDismissAfter = p.autoDismissAfter
-        vPosition = p.vPosition
-        hAlignment = p.hAlignment
-        horizontalMargin = p.horizontalMargin
-        verticalMargin = p.verticalMargin
-        blocksTouches = p.blocksTouches
-        draggable = p.draggable && !p.blocksTouches
+        // ✅ Single source of truth
+        state.payload = payload
 
-        // If touches are blocked, swipeToDismiss is forced off
-        swipeToDismiss = p.blocksTouches ? false : p.swipeToDismiss
+        // MARK: - Side effects (non-state)
 
+        // Layout
+        vPosition = payload.vPosition
+        hAlignment = payload.hAlignment
+        horizontalMargin = payload.horizontalMargin
+        verticalMargin = payload.verticalMargin
+
+        // Interaction
+        autoDismissAfter = payload.autoDismissAfter
+        blocksTouches = payload.blocksTouches
+
+        // Dragging is disabled when touches are blocked
+        draggable = payload.draggable && !payload.blocksTouches
+
+        // If touches are blocked, swipe-to-dismiss is forced off
+        swipeToDismiss = payload.blocksTouches ? false : payload.swipeToDismiss
+
+        // Tap handler (manager-owned, not state)
         onTap = p.onTap
     }
 
@@ -855,12 +674,13 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         queue.removeFirst()
 
         activeToken = next.token
-        presentedVPosition = next.vPosition
+        presentedVPosition = next.payload.vPosition
 
         // Apply the content/configuration for this request
         applyPending(next)
 
-        // From now on, we consider a banner as "presenting" (including animation-in + visible).
+        // From now on, we consider a banner as "presenting"
+        // (including animation-in + visible).
         isPresenting = true
 
         startShow(with: next.viewUI)
@@ -1285,9 +1105,8 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
     }
 
-    /// Handles tap events on the banner host view and forwards them to the configured `onTap` handler.
     @objc private func handleBannerTap() {
         guard !isDismissing else { return }
-        onTap?(activeToken, state.stage)
+        onTap?(activeToken, state.payload.stage)
     }
 }
