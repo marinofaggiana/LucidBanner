@@ -92,6 +92,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     private var blocksTouches = false
     private var window: LucidBannerWindow?
     private var hostController: UIHostingController<AnyView>?
+    private weak var scrimView: UIControl?
 
     // Timers/flags
     private var dismissTimer: Task<Void, Never>?
@@ -107,7 +108,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
     // Position
     private var vPosition: VerticalPosition = .top
-    private var hAlignment: HorizontalAlignment = .center
     private var horizontalMargin: CGFloat = 12
     private var verticalMargin: CGFloat = 10
     private var presentedVPosition: VerticalPosition = .top
@@ -225,40 +225,141 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// - Parameters:
     ///   - payload: Descriptive payload.update defining content, appearance and interaction.
     ///   - token: Optional banner token to restrict the update to a specific banner.
-    public func update(
-        payload patch: LucidBannerPayload.Update,
-        for token: Int? = nil
-    ) {
+    public func update(payload: LucidBannerPayload.Update, for token: Int? = nil) {
         guard window != nil, (token == nil || token == activeToken) else {
             return
         }
 
-        let oldPayload = state.payload
-        var newPayload = oldPayload
-        patch.merge(into: &newPayload)
+        var needsRelayout = false
+        var shouldRescheduleAutoDismiss = false
 
-        let needsRelayout =
-            oldPayload.title != newPayload.title ||
-            oldPayload.subtitle != newPayload.subtitle ||
-            oldPayload.footnote != newPayload.footnote ||
-            oldPayload.systemImage != newPayload.systemImage ||
-            (oldPayload.progress != nil) != (newPayload.progress != nil) ||
-            oldPayload.vPosition != newPayload.vPosition ||
-            oldPayload.hAlignment != newPayload.hAlignment ||
-            oldPayload.horizontalMargin != newPayload.horizontalMargin ||
-            oldPayload.verticalMargin != newPayload.verticalMargin
+        // MARK: - Content
 
-        state.payload = newPayload
+        if let title = payload.title?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .nilIfEmpty {
+            if title != state.payload.title { needsRelayout = true }
+            state.payload.title = title
+        }
 
-        // Side effects
-        blocksTouches = newPayload.blocksTouches
-        swipeToDismiss = newPayload.blocksTouches ? false : newPayload.swipeToDismiss
-        draggable = newPayload.draggable && !newPayload.blocksTouches
-        panGestureRef?.isEnabled = draggable
+        if let subtitle = payload.subtitle?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .nilIfEmpty {
+            if subtitle != state.payload.subtitle { needsRelayout = true }
+            state.payload.subtitle = subtitle
+        }
 
-        autoDismissAfter = newPayload.autoDismissAfter
+        if let footnote = payload.footnote?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .nilIfEmpty {
+            if footnote != state.payload.footnote { needsRelayout = true }
+            state.payload.footnote = footnote
+        }
+
+        if let systemImage = payload.systemImage {
+            if systemImage != state.payload.systemImage { needsRelayout = true }
+            state.payload.systemImage = systemImage
+        }
+
+        if let imageAnimation = payload.imageAnimation {
+            state.payload.imageAnimation = imageAnimation
+        }
+
+        if let progress = payload.progress {
+            let clamped = max(0, min(1, progress))
+            let oldVisible = state.payload.progress != nil
+            if oldVisible == false { needsRelayout = true }
+            state.payload.progress = clamped
+        }
+
+        if let stage = payload.stage {
+            if stage != state.payload.stage { needsRelayout = true }
+            state.payload.stage = stage
+        }
+
+        // MARK: - Appearance
+
+        if let backgroundColor = payload.backgroundColor {
+            state.payload.backgroundColor = backgroundColor
+        }
+
+        if let textColor = payload.textColor {
+            state.payload.textColor = textColor
+        }
+
+        if let imageColor = payload.imageColor {
+            state.payload.imageColor = imageColor
+        }
+
+        // MARK: - Interaction (FIX QUI)
+
+        if let blocksTouches = payload.blocksTouches {
+            self.blocksTouches = blocksTouches
+            state.payload.blocksTouches = blocksTouches   // ✅ FIX 1: payload sincronizzato
+
+            // Window behavior
+            window?.isPassthrough = !blocksTouches
+            window?.accessibilityViewIsModal = blocksTouches
+
+            // Scrim behavior
+            scrimView?.isUserInteractionEnabled = blocksTouches
+            scrimView?.backgroundColor = UIColor.black.withAlphaComponent(
+                blocksTouches ? 0.08 : 0.0
+            )
+
+            // blocksTouches disables swipe-to-dismiss
+            swipeToDismiss = blocksTouches ? false : swipeToDismiss
+
+            // Update gesture enablement
+            panGestureRef?.isEnabled = swipeToDismiss || draggable
+        }
+
+        if let draggable = payload.draggable {
+            ensurePanGestureInstalled()
+            self.draggable = draggable && !blocksTouches
+            state.payload.draggable = draggable
+            panGestureRef?.isEnabled = self.draggable || swipeToDismiss
+        }
+
+        if let swipe = payload.swipeToDismiss {
+            ensurePanGestureInstalled()
+            swipeToDismiss = blocksTouches ? false : swipe
+            panGestureRef?.isEnabled = swipeToDismiss || draggable
+        }
+
+        // MARK: - Layout
+
+        if let v = payload.vPosition {
+            vPosition = v
+            presentedVPosition = v
+            needsRelayout = true
+        }
+
+        if let m = payload.horizontalMargin {
+            horizontalMargin = m
+            needsRelayout = true
+        }
+
+        if let m = payload.verticalMargin {
+            verticalMargin = m
+            needsRelayout = true
+        }
+
+        // MARK: - Timing
+
+        if let autoDismissAfter = payload.autoDismissAfter {
+            self.autoDismissAfter = autoDismissAfter
+            shouldRescheduleAutoDismiss = autoDismissAfter > 0
+
+            if !shouldRescheduleAutoDismiss {
+                dismissTimer?.cancel()
+                dismissTimer = nil
+            }
+        }
 
         guard let window else { return }
+
+        // MARK: - Layout pass
 
         if needsRelayout {
             if isAnimatingIn || isDismissing {
@@ -272,14 +373,12 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             }
         }
 
-        if autoDismissAfter > 0 {
+        // MARK: - Auto-dismiss reschedule
+
+        if shouldRescheduleAutoDismiss {
             scheduleAutoDismiss()
-        } else {
-            dismissTimer?.cancel()
-            dismissTimer = nil
         }
     }
-
     /// Translates the current banner in window space so that its center moves to the given point.
     ///
     /// This method preserves any existing transform (e.g. from dragging) and applies a delta transform
@@ -511,6 +610,13 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             self.window = nil
             self.heightConstraint = nil
             self.isDismissing = false
+            self.panGestureRef = nil
+            self.scrimView = nil
+
+            // RESET interaction flags
+            self.blocksTouches = false
+            self.swipeToDismiss = false
+            self.draggable = false
 
             self.dequeueAndStartIfNeeded()
 
@@ -588,6 +694,9 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             window.rootViewController = nil
             self?.window = nil
 
+            self?.isPresenting = false
+            self?.isDismissing = false
+
             // Notify caller
             completion?()
         }
@@ -638,7 +747,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
         // Layout
         vPosition = payload.vPosition
-        hAlignment = payload.hAlignment
         horizontalMargin = payload.horizontalMargin
         verticalMargin = payload.verticalMargin
 
@@ -693,119 +801,115 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             return
         }
 
+        // MARK: - Window
+
         let window = LucidBannerWindow(windowScene: scene)
         window.windowLevel = .statusBar + 1
         window.backgroundColor = .clear
         window.isPassthrough = !blocksTouches
         window.accessibilityViewIsModal = blocksTouches
 
-        // SwiftUI host
+        // MARK: - SwiftUI Host
+
         let content = contentView?(state) ?? AnyView(EmptyView())
         let host = UIHostingController(rootView: content)
         host.view.backgroundColor = .clear
+        host.view.translatesAutoresizingMaskIntoConstraints = false
 
-        // Root
+        // MARK: - Root Container
+
         let root = UIView()
         root.backgroundColor = .clear
-
-        // Scrim
-        let scrim = UIControl()
-        scrim.translatesAutoresizingMaskIntoConstraints = false
-        scrim.backgroundColor = UIColor.black.withAlphaComponent(blocksTouches ? 0.08 : 0.0)
-        scrim.isUserInteractionEnabled = blocksTouches
 
         let rootViewController = UIViewController()
         rootViewController.view = root
         window.rootViewController = rootViewController
 
+        // MARK: - Scrim
+
+        let scrim = UIControl()
+        scrim.translatesAutoresizingMaskIntoConstraints = false
+        scrim.backgroundColor = UIColor.black.withAlphaComponent(blocksTouches ? 0.08 : 0.0)
+        scrim.isUserInteractionEnabled = blocksTouches
+        self.scrimView = scrim
+
         root.addSubview(scrim)
         root.addSubview(host.view)
-        host.view.translatesAutoresizingMaskIntoConstraints = false
 
-        let guide = root.safeAreaLayoutGuide
-        let useSafeArea = LucidBanner.useSafeArea
-
-        var constraints: [NSLayoutConstraint] = []
-
-        constraints += [
+        NSLayoutConstraint.activate([
             scrim.topAnchor.constraint(equalTo: root.topAnchor),
             scrim.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             scrim.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             scrim.bottomAnchor.constraint(equalTo: root.bottomAnchor)
-        ]
+        ])
 
-        // Vertical position.
+        // MARK: - Layout Constraints
+
+        let guide = root.safeAreaLayoutGuide
+        let useSafeArea = LucidBanner.useSafeArea
+
         switch vPosition {
         case .top:
-            constraints.append(
-                host.view.topAnchor.constraint(
-                    equalTo: useSafeArea ? guide.topAnchor : root.topAnchor,
-                    constant: verticalMargin
-                )
-            )
+            host.view.topAnchor.constraint(
+                equalTo: useSafeArea ? guide.topAnchor : root.topAnchor,
+                constant: verticalMargin
+            ).isActive = true
+
         case .center:
-            constraints.append(
-                host.view.centerYAnchor.constraint(
-                    equalTo: useSafeArea ? guide.centerYAnchor : root.centerYAnchor
-                )
-            )
+            host.view.centerYAnchor.constraint(
+                equalTo: useSafeArea ? guide.centerYAnchor : root.centerYAnchor
+            ).isActive = true
+
         case .bottom:
-            constraints.append(
-                host.view.bottomAnchor.constraint(
-                    equalTo: useSafeArea ? guide.bottomAnchor : root.bottomAnchor,
-                    constant: -verticalMargin
-                )
-            )
+            host.view.bottomAnchor.constraint(
+                equalTo: useSafeArea ? guide.bottomAnchor : root.bottomAnchor,
+                constant: -verticalMargin
+            ).isActive = true
         }
 
-        // Horizontal full-width inside safe area (or full window if disabled)
         let leadingAnchor = useSafeArea ? guide.leadingAnchor : root.leadingAnchor
         let trailingAnchor = useSafeArea ? guide.trailingAnchor : root.trailingAnchor
 
-        constraints.append(
-            host.view.leadingAnchor.constraint(equalTo: leadingAnchor, constant: horizontalMargin)
-        )
-        constraints.append(
+        NSLayoutConstraint.activate([
+            host.view.leadingAnchor.constraint(equalTo: leadingAnchor, constant: horizontalMargin),
             host.view.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -horizontalMargin)
-        )
+        ])
 
-        NSLayoutConstraint.activate(constraints)
+        // MARK: - Gestures
 
-        // Gestures
         window.hitTargetView = host.view
-
-        if swipeToDismiss || draggable {
-            let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePanGesture(_:)))
-            pan.cancelsTouchesInView = false
-            pan.delegate = self
-            host.view.addGestureRecognizer(pan)
-            panGestureRef = pan
-        }
 
         let tap = UITapGestureRecognizer(target: self, action: #selector(handleBannerTap))
         tap.cancelsTouchesInView = false
         tap.delegate = self
         host.view.addGestureRecognizer(tap)
 
-        // Accessibility
+        // MARK: - Accessibility
+
         host.view.isAccessibilityElement = true
         host.view.accessibilityTraits.insert(.button)
         host.view.accessibilityLabel = "Banner"
 
+        // MARK: - Finalize References (ORDER MATTERS)
+
         self.window = window
         self.hostController = host
 
-        // Handle rotation or other layout passes: just mark that a relayout is needed.
-        // The actual remeasure will be performed at a safe moment (e.g. after show
-        // animation or after an explicit `update(...)` that triggers it).
+        ensurePanGestureInstalled()
+        panGestureRef?.isEnabled = swipeToDismiss || draggable
+
+        // MARK: - Layout Change Handling
+
         window.onLayoutChange = { [weak self] in
             guard let self else { return }
             self.pendingRelayout = true
         }
 
-        // Presentation animation (solo fade + leggero scale, niente offset che litiga con i vincoli)
+        // MARK: - Presentation Animation
+
         presentedVPosition = vPosition
         interactionUnlockTime = CACurrentMediaTime() + 0.25
+
         host.view.alpha = 0
         host.view.transform = CGAffineTransform(scaleX: 0.95, y: 0.95)
 
@@ -823,7 +927,9 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             host.view.transform = .identity
         } completion: { [weak self] _ in
             guard let self else { return }
+
             self.isAnimatingIn = false
+
             if self.pendingRelayout {
                 self.pendingRelayout = false
                 self.remeasure(animated: true)
@@ -1103,6 +1209,29 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         default:
             break
         }
+    }
+
+    /// Ensures that the pan gesture recognizer is installed on the banner host view.
+    ///
+    /// The gesture is created lazily and reused across runtime updates.
+    /// This allows features like `draggable` or `swipeToDismiss` to be
+    /// enabled or disabled dynamically via payload updates, even if they
+    /// were initially disabled at presentation time.
+    private func ensurePanGestureInstalled() {
+        guard panGestureRef == nil,
+              let hostView = hostController?.view else {
+            return
+        }
+
+        let pan = UIPanGestureRecognizer(
+            target: self,
+            action: #selector(handlePanGesture(_:))
+        )
+        pan.cancelsTouchesInView = false
+        pan.delegate = self
+
+        hostView.addGestureRecognizer(pan)
+        panGestureRef = pan
     }
 
     @objc private func handleBannerTap() {

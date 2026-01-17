@@ -38,7 +38,6 @@ public struct LucidBannerPayload {
     // MARK: Layout
 
     public var vPosition: LucidBanner.VerticalPosition
-    public var hAlignment: LucidBanner.HorizontalAlignment
     public var horizontalMargin: CGFloat
     public var verticalMargin: CGFloat
 
@@ -63,7 +62,6 @@ public struct LucidBannerPayload {
         textColor: Color = .primary,
         imageColor: Color = .primary,
         vPosition: LucidBanner.VerticalPosition = .center,
-        hAlignment: LucidBanner.HorizontalAlignment = .center,
         horizontalMargin: CGFloat = 12,
         verticalMargin: CGFloat = 10,
         autoDismissAfter: TimeInterval = 0,
@@ -84,7 +82,6 @@ public struct LucidBannerPayload {
         self.imageColor = imageColor
 
         self.vPosition = vPosition
-        self.hAlignment = hAlignment
         self.horizontalMargin = horizontalMargin
         self.verticalMargin = verticalMargin
 
@@ -128,7 +125,6 @@ public extension LucidBannerPayload {
         // MARK: Layout
 
         public var vPosition: LucidBanner.VerticalPosition?
-        public var hAlignment: LucidBanner.HorizontalAlignment?
         public var horizontalMargin: CGFloat?
         public var verticalMargin: CGFloat?
 
@@ -210,10 +206,6 @@ public extension LucidBannerPayload.Update {
 
         if let vPosition {
             payload.vPosition = vPosition
-        }
-
-        if let hAlignment {
-            payload.hAlignment = hAlignment
         }
 
         if let horizontalMargin {
