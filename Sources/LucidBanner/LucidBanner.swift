@@ -68,13 +68,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         case bottom
     }
 
-    /// Horizontal alignment of the banner inside the window.
-    public enum HorizontalAlignment {
-        case left
-        case center
-        case right
-    }
-
     // Pending payload used for queueing
     private struct PendingShow {
         let scene: UIWindowScene?
@@ -696,6 +689,9 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
             self?.isPresenting = false
             self?.isDismissing = false
+            self?.blocksTouches = false
+            self?.swipeToDismiss = false
+            self?.draggable = false
 
             // Notify caller
             completion?()
@@ -749,6 +745,8 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         vPosition = payload.vPosition
         horizontalMargin = payload.horizontalMargin
         verticalMargin = payload.verticalMargin
+        heightConstraint?.isActive = false
+        heightConstraint = nil
 
         // Interaction
         autoDismissAfter = payload.autoDismissAfter
@@ -796,6 +794,8 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
     /// Creates and attaches the hosting window, installs constraints, gestures,
     /// and runs the presentation animation for the current banner.
+    /// Creates and attaches the hosting window, installs constraints, gestures,
+    /// and runs the presentation animation for the current banner.
     private func attachWindowAndPresent() {
         guard let scene = self.scene else {
             return
@@ -809,13 +809,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         window.isPassthrough = !blocksTouches
         window.accessibilityViewIsModal = blocksTouches
 
-        // MARK: - SwiftUI Host
-
-        let content = contentView?(state) ?? AnyView(EmptyView())
-        let host = UIHostingController(rootView: content)
-        host.view.backgroundColor = .clear
-        host.view.translatesAutoresizingMaskIntoConstraints = false
-
         // MARK: - Root Container
 
         let root = UIView()
@@ -825,6 +818,17 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         rootViewController.view = root
         window.rootViewController = rootViewController
 
+        // MARK: - SwiftUI Host (with proper containment)
+
+        let content = contentView?(state) ?? AnyView(EmptyView())
+        let host = UIHostingController(rootView: content)
+        host.view.backgroundColor = .clear
+        host.view.translatesAutoresizingMaskIntoConstraints = false
+
+        rootViewController.addChild(host)
+        root.addSubview(host.view)
+        host.didMove(toParent: rootViewController)
+
         // MARK: - Scrim
 
         let scrim = UIControl()
@@ -833,8 +837,8 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         scrim.isUserInteractionEnabled = blocksTouches
         self.scrimView = scrim
 
-        root.addSubview(scrim)
-        root.addSubview(host.view)
+        // Scrim must sit behind the banner view.
+        root.insertSubview(scrim, belowSubview: host.view)
 
         NSLayoutConstraint.activate([
             scrim.topAnchor.constraint(equalTo: root.topAnchor),
@@ -1218,10 +1222,8 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// enabled or disabled dynamically via payload updates, even if they
     /// were initially disabled at presentation time.
     private func ensurePanGestureInstalled() {
-        guard panGestureRef == nil,
-              let hostView = hostController?.view else {
-            return
-        }
+        guard let hostView = hostController?.view else { return }
+        if panGestureRef?.view === hostView { return }
 
         let pan = UIPanGestureRecognizer(
             target: self,
