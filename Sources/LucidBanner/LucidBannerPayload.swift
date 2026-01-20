@@ -4,52 +4,133 @@
 //  Created by Marino Faggiana.
 //  Licensed under the MIT License.
 //
-//  Description:
-//  Data model describing the full visual, layout and interaction
-//  configuration of a LucidBanner instance.
+//  Overview:
+//  LucidBannerPayload is a value-type data model describing the complete
+//  visual, layout, interaction, and timing configuration of a LucidBanner.
 //
-//  The payload represents a complete snapshot of banner state.
-//  Incremental changes are applied via `LucidBannerPayload.Update`
-//  using a deterministic merge strategy.
+//  The payload represents a full, immutable snapshot of banner configuration
+//  at a given point in time. It is designed to be:
+//  - Explicit: every aspect of banner behavior is represented.
+//  - Deterministic: identical payloads always produce identical behavior.
+//  - Side-effect free: the payload itself contains no logic.
+//
+//  Incremental changes are expressed via `LucidBannerPayload.Update`,
+//  which is merged into an existing payload using a strict
+//  non-nil override strategy.
+//
+//  Design principles:
+//  - Value semantics over reference semantics.
+//  - Clear separation between full state and incremental updates.
+//  - Sanitization and clamping at the data boundary.
 //
 
 import SwiftUI
 
-// MARK: - Full payload
+// MARK: - Full Payload
 
+/// Complete configuration snapshot for a LucidBanner.
+///
+/// This struct describes *everything* required to render and interact
+/// with a banner instance, including content, appearance, layout,
+/// interaction rules, and timing.
+///
+/// A `LucidBannerPayload` is never partially applied:
+/// it always represents a coherent, self-contained configuration.
 public struct LucidBannerPayload {
 
-    // MARK: Content
+    // MARK: - Content
 
+    /// Primary title text.
+    ///
+    /// Empty or whitespace-only strings are normalized to `nil`.
     public var title: String?
+
+    /// Secondary subtitle text.
+    ///
+    /// Empty or whitespace-only strings are normalized to `nil`.
     public var subtitle: String?
+
+    /// Optional footnote text displayed below main content.
+    ///
+    /// Empty or whitespace-only strings are normalized to `nil`.
     public var footnote: String?
+
+    /// Name of the SF Symbol displayed in the banner.
+    ///
+    /// Interpreted by SwiftUI content.
     public var systemImage: String?
+
+    /// Animation style applied to the banner icon.
+    ///
+    /// This value is declarative and interpreted by SwiftUI.
     public var imageAnimation: LucidBanner.LucidBannerAnimationStyle
+
+    /// Optional progress value in the range `[0, 1]`.
+    ///
+    /// Values are clamped during initialization.
+    /// A `nil` value hides the progress indicator.
     public var progress: Double?
+
+    /// Optional semantic stage associated with the banner.
+    ///
+    /// Stages are used for higher-level coordination
+    /// (e.g. progress flows, state transitions).
     public var stage: LucidBanner.Stage?
 
-    // MARK: Appearance
+    // MARK: - Appearance
 
+    /// Background color of the banner container.
     public var backgroundColor: Color
+
+    /// Text color applied to title, subtitle, and footnote.
     public var textColor: Color
+
+    /// Tint color applied to the system image.
     public var imageColor: Color
 
-    // MARK: Layout
+    // MARK: - Layout
 
+    /// Vertical placement of the banner within its window.
     public var vPosition: LucidBanner.VerticalPosition
+
+    /// Horizontal margin applied to the banner container.
     public var horizontalMargin: CGFloat
+
+    /// Vertical margin applied relative to the chosen vertical position.
     public var verticalMargin: CGFloat
 
-    // MARK: Interaction
+    // MARK: - Interaction
 
+    /// Auto-dismiss delay in seconds.
+    ///
+    /// A value of `0` disables auto-dismiss.
     public var autoDismissAfter: TimeInterval
+
+    /// Enables swipe-to-dismiss interaction.
+    ///
+    /// Direction and behavior depend on `vPosition`.
     public var swipeToDismiss: Bool
+
+    /// When enabled, blocks touches outside the banner.
+    ///
+    /// This makes the banner behave as a lightweight modal overlay.
     public var blocksTouches: Bool
+
+    /// Enables free dragging of the banner.
+    ///
+    /// Dragging is automatically disabled when `blocksTouches` is `true`.
     public var draggable: Bool
 
-    // MARK: Init
+    // MARK: - Initialization
 
+    /// Creates a complete banner payload.
+    ///
+    /// Input values are sanitized and normalized at initialization time:
+    /// - Empty strings are converted to `nil`.
+    /// - Progress is clamped to `[0, 1]`.
+    ///
+    /// Defaults are chosen to produce a non-intrusive,
+    /// non-interactive banner by default.
     public init(
         title: String? = nil,
         subtitle: String? = nil,
@@ -92,15 +173,21 @@ public struct LucidBannerPayload {
     }
 }
 
-// MARK: - Incremental update payload (patch)
+// MARK: - Incremental Update Payload (Patch)
 
 public extension LucidBannerPayload {
 
     /// Describes a partial update to an existing `LucidBannerPayload`.
-    /// Only non-nil values are applied during merge.
+    ///
+    /// This type represents a *patch*, not a full configuration.
+    /// Only non-`nil` fields are applied during merge.
+    ///
+    /// The merge strategy is deterministic:
+    /// - `nil` fields are ignored.
+    /// - Non-`nil` fields overwrite the existing payload.
     struct Update {
 
-        // MARK: Content
+        // MARK: - Content
 
         public var title: String?
         public var subtitle: String?
@@ -110,41 +197,49 @@ public extension LucidBannerPayload {
         public var progress: Double?
         public var stage: LucidBanner.Stage?
 
-        // MARK: Appearance
+        // MARK: - Appearance
 
         public var backgroundColor: Color?
         public var textColor: Color?
         public var imageColor: Color?
 
-        // MARK: Interaction
+        // MARK: - Interaction
 
         public var draggable: Bool?
         public var swipeToDismiss: Bool?
         public var blocksTouches: Bool?
 
-        // MARK: Layout
+        // MARK: - Layout
 
         public var vPosition: LucidBanner.VerticalPosition?
         public var horizontalMargin: CGFloat?
         public var verticalMargin: CGFloat?
 
-        // MARK: Timing
+        // MARK: - Timing
 
         public var autoDismissAfter: TimeInterval?
 
+        /// Creates an empty update patch.
+        ///
+        /// All properties default to `nil`.
         public init() {}
     }
 }
 
-// MARK: - Merge logic
+// MARK: - Merge Logic
 
 public extension LucidBannerPayload.Update {
 
     /// Applies this update patch to an existing payload.
-    /// Only non-nil fields are merged.
+    ///
+    /// Only non-`nil` fields are merged.
+    /// Sanitization rules (e.g. string trimming, progress clamping)
+    /// are applied during the merge.
+    ///
+    /// - Parameter payload: The payload to be mutated in place.
     func merge(into payload: inout LucidBannerPayload) {
 
-        // MARK: Content
+        // MARK: - Content
 
         if let title {
             payload.title = title.trimmedNilIfEmpty
@@ -174,7 +269,7 @@ public extension LucidBannerPayload.Update {
             payload.stage = stage
         }
 
-        // MARK: Appearance
+        // MARK: - Appearance
 
         if let backgroundColor {
             payload.backgroundColor = backgroundColor
@@ -188,7 +283,7 @@ public extension LucidBannerPayload.Update {
             payload.imageColor = imageColor
         }
 
-        // MARK: Interaction
+        // MARK: - Interaction
 
         if let draggable {
             payload.draggable = draggable
@@ -202,7 +297,7 @@ public extension LucidBannerPayload.Update {
             payload.blocksTouches = blocksTouches
         }
 
-        // MARK: Layout
+        // MARK: - Layout
 
         if let vPosition {
             payload.vPosition = vPosition
@@ -216,7 +311,7 @@ public extension LucidBannerPayload.Update {
             payload.verticalMargin = verticalMargin
         }
 
-        // MARK: Timing
+        // MARK: - Timing
 
         if let autoDismissAfter {
             payload.autoDismissAfter = autoDismissAfter

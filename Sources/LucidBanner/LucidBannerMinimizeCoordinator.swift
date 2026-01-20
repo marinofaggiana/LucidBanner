@@ -1,88 +1,124 @@
 //
-//  LucidBanner
+//  LucidBannerMinimizeCoordinator
 //
 //  Created by Marino Faggiana.
 //  Licensed under the MIT License.
 //
-//  Description:
-//  Flexible scene-aware banner system built with SwiftUI + UIKit.
-//  Provides animated, interruptible, queueable in-app notifications,
-//  with optional touch-passthrough, swipe-to-dismiss and auto-dismiss.
+//  Overview:
+//  LucidBannerMinimizeCoordinator is a lightweight, generic coordinator
+//  responsible for toggling a LucidBanner between expanded and minimized states.
+//
+//  The coordinator is intentionally UI-agnostic:
+//  - It has no knowledge of tab bars, navigation controllers, split views,
+//    or application-specific layout rules.
+//  - The minimized target position is always provided externally via a
+//    mandatory resolver closure.
+//
+//  The coordinator operates purely as a behavioral extension of LucidBanner,
+//  manipulating banner position and state without owning presentation logic.
+//
+//  Responsibilities:
+//  - Track a single active banner token.
+//  - Toggle minimization state in response to user interaction.
+//  - Reposition the banner using a resolver-defined target point.
+//  - Re-apply minimized positioning after orientation or layout changes.
+//
+//  Design principles:
+//  - Zero assumptions about app layout.
+//  - No UIKit hierarchy introspection beyond the banner itself.
+//  - SwiftUI remains a passive renderer driven by state.
+//
+//  Invariants:
+//  - At most one banner token is tracked at a time.
+//  - All operations are validated against the active LucidBanner token.
+//  - Minimized positioning is always resolved in window coordinates.
 //
 
 @preconcurrency import UIKit
 
-/// Coordinator that toggles a `LucidBanner` between expanded and minimized states.
+/// Coordinator responsible for toggling a `LucidBanner` between
+/// expanded and minimized presentation states.
 ///
-/// This coordinator is designed to be **generic**:
-/// - It does not know about tab bars, navigation bars, controllers, or app layout rules.
-/// - The minimized target position is provided by a **mandatory** resolver closure.
+/// This coordinator does not own or present banners.
+/// It operates exclusively on an already-presented banner
+/// identified by a token returned from `LucidBanner.shared.show(...)`.
 ///
 /// Concurrency:
-/// - The class is `@MainActor` because it interacts with UIKit (`UIWindow`, `UIView`)
-///   and mutates UI-driven state (`LucidBannerState.isMinimized`).
-/// - `@preconcurrency import UIKit` suppresses strict `Sendable` enforcement for UIKit
-///   / Objective-C APIs (e.g., `NotificationCenter` observer tokens).
+/// - Annotated `@MainActor` because it mutates UIKit views and
+///   UI-driven shared state (`LucidBannerState.isMinimized`).
+/// - Uses `@preconcurrency import UIKit` to relax strict Sendable
+///   enforcement for Objective-C based APIs.
 ///
 /// Lifecycle:
-/// - `register(token:resolveMinimizePoint:)` must be called after `LucidBanner.shared.show(...)`
-///   returns a token.
-/// - The coordinator listens to `UIDevice.orientationDidChangeNotification` and re-applies
-///   the minimized position after rotation.
-/// - `handleTap(_:)` toggles minimization on user tap.
-///
-/// Note:
-/// - This coordinator tracks a single active token (`currentToken`) at a time.
+/// - `register(token:resolveMinimizePoint:)` must be invoked after
+///   banner presentation.
+/// - Orientation changes are observed to keep minimized positioning valid.
+/// - Tap handling is delegated from SwiftUI content.
 @MainActor
 public final class LucidBannerMinimizeCoordinator {
+
+    /// Shared singleton instance.
+    ///
+    /// A singleton is appropriate because only one banner may be
+    /// active at a time in the LucidBanner system.
     public static let shared = LucidBannerMinimizeCoordinator()
 
     // MARK: - Types
 
-    /// Context passed to the mandatory minimize-point resolver.
+    /// Context passed to the minimized-position resolver.
     ///
-    /// The resolver should return a target point in **window coordinates**
-    /// for the minimized banner.
+    /// All coordinates are expressed in **window space**.
+    /// The resolver is free to ignore or use any of the provided fields.
     public struct ResolveContext {
+
         /// The active banner token.
         public let token: Int
 
-        /// The shared banner state instance (SwiftUI observes this).
+        /// Shared banner state observed by SwiftUI.
         public let state: LucidBannerState
 
-        /// The banner host view (UIKit container for the SwiftUI content).
+        /// UIKit host view wrapping the SwiftUI banner.
         public let hostView: UIView
 
-        /// The window hosting the banner.
+        /// Window hosting the banner.
         public let window: UIWindow
 
-        /// Convenience: window bounds.
+        /// Convenience: full window bounds.
         public let bounds: CGRect
 
-        /// Convenience: window safe-area insets.
+        /// Convenience: safe-area insets of the window.
         public let safeAreaInsets: UIEdgeInsets
     }
 
-    /// Mandatory resolver used to compute the minimized target point.
+    /// Mandatory handler used to compute the minimized target position.
     ///
-    /// Return a CGPoint in window coordinates where the banner should move
-    /// when minimized.
-    public typealias ResolveMinimizePointHandler = @MainActor (_ context: ResolveContext) -> CGPoint
+    /// The returned point must be expressed in window coordinates.
+    public typealias ResolveMinimizePointHandler =
+        @MainActor (_ context: ResolveContext) -> CGPoint
 
-    // MARK: - Stored properties
+    // MARK: - Stored Properties
 
+    /// Currently tracked banner token.
+    ///
+    /// Only one token may be tracked at a time.
     private var currentToken: Int?
-    /// Mandatory resolver for minimized target point.
+
+    /// Resolver used to compute the minimized target position.
+    ///
+    /// This handler is mandatory for minimization to occur.
     private var resolveHandler: ResolveMinimizePointHandler?
-    /// Orientation change observer token (Objective-C based, not `Sendable`).
+
+    /// Orientation change observer token.
+    ///
+    /// Stored as `NSObjectProtocol` due to Objective-C based API.
     private var orientationObserver: NSObjectProtocol?
 
-    // MARK: - Init
+    // MARK: - Initialization
 
-    /// Creates the coordinator and installs an orientation change observer.
+    /// Creates the coordinator and installs an orientation-change observer.
     ///
-    /// On rotation, a short delay is used to allow UIKit to settle layout and window bounds
-    /// before recomputing the minimized target position.
+    /// On rotation, a short delay is introduced to allow UIKit to settle
+    /// window bounds and layout before recomputing the minimized position.
     init() {
         orientationObserver = NotificationCenter.default.addObserver(
             forName: UIDevice.orientationDidChangeNotification,
@@ -92,7 +128,7 @@ public final class LucidBannerMinimizeCoordinator {
             guard let self else { return }
 
             Task { @MainActor in
-                // Small delay to let the window/layout settle after rotation.
+                // Allow layout to stabilize before repositioning.
                 try? await Task.sleep(for: .milliseconds(100))
                 self.refreshPosition(animated: true)
             }
@@ -101,8 +137,8 @@ public final class LucidBannerMinimizeCoordinator {
 
     /// Removes the orientation observer.
     ///
-    /// Note: For a singleton this typically runs only at process termination, but removing
-    /// observers is still good hygiene.
+    /// For a singleton this usually runs only at process termination,
+    /// but explicit cleanup avoids observer leaks and aids testability.
     deinit {
         if let orientationObserver {
             NotificationCenter.default.removeObserver(orientationObserver)
@@ -111,16 +147,17 @@ public final class LucidBannerMinimizeCoordinator {
 
     // MARK: - Registration
 
-    /// Registers the active banner token and the mandatory resolver.
+    /// Registers the active banner token and the mandatory minimize-point resolver.
     ///
-    /// The resolver is required because this coordinator does not make assumptions about
-    /// UI chrome (tab bar placement, navigation bars, sidebars, etc.). The host app decides
-    /// where the minimized bubble should land.
+    /// If `token` is `nil`, the coordinator state is cleared.
     ///
     /// - Parameters:
     ///   - token: Banner token returned by `LucidBanner.shared.show(...)`.
-    ///   - resolveMinimizePoint: Mandatory handler returning the minimized target point.
-    public func register(token: Int?, resolveMinimizePoint: @escaping ResolveMinimizePointHandler) {
+    ///   - resolveMinimizePoint: Mandatory handler resolving the minimized position.
+    public func register(
+        token: Int?,
+        resolveMinimizePoint: @escaping ResolveMinimizePointHandler
+    ) {
         guard let token else {
             clear()
             return
@@ -132,13 +169,13 @@ public final class LucidBannerMinimizeCoordinator {
 
     // MARK: - Public API
 
-    /// Handles a tap gesture coming from the SwiftUI banner content.
-    ///
-    /// - Parameter state: The `LucidBannerState` instance owned by the banner content.
+    /// Handles a tap originating from the SwiftUI banner content.
     ///
     /// Behavior:
-    /// - If the banner is minimized, it is restored (maximized).
-    /// - If the banner is expanded, it is minimized and moved to the resolver-provided point.
+    /// - If the banner is currently minimized, it is restored.
+    /// - If the banner is expanded, it is minimized and repositioned.
+    ///
+    /// - Parameter state: The shared `LucidBannerState` instance.
     public func handleTap(_ state: LucidBannerState) {
         guard let token = currentToken else { return }
 
@@ -154,21 +191,21 @@ public final class LucidBannerMinimizeCoordinator {
         }
     }
 
-    // MARK: - Private
+    // MARK: - Internal Helpers
 
-    /// Clears the coordinator state.
+    /// Clears all tracked coordinator state.
     private func clear() {
         currentToken = nil
         resolveHandler = nil
     }
 
-    /// Refreshes banner position after rotation/layout changes.
-    ///
-    /// - Parameter animated: Whether the move should be animated.
+    /// Re-applies banner positioning after layout or orientation changes.
     ///
     /// Behavior:
-    /// - If minimized, recomputes the target via the resolver and moves there.
-    /// - If not minimized, resets to the standard LucidBanner position.
+    /// - If minimized, recomputes and applies the minimized position.
+    /// - If expanded, restores the canonical LucidBanner position.
+    ///
+    /// - Parameter animated: Whether repositioning is animated.
     private func refreshPosition(animated: Bool = true) {
         guard let token = currentToken else { return }
 
@@ -182,9 +219,10 @@ public final class LucidBannerMinimizeCoordinator {
         }
 
         if state.isMinimized {
-            guard let target = resolvedMinimizePoint(for: token, state: state) else {
-                return
-            }
+            guard let target = resolvedMinimizePoint(
+                for: token,
+                state: state
+            ) else { return }
 
             LucidBanner.shared.move(
                 toX: target.x,
@@ -193,17 +231,20 @@ public final class LucidBannerMinimizeCoordinator {
                 animated: animated
             )
         } else {
-            LucidBanner.shared.resetPosition(for: token, animated: true)
+            LucidBanner.shared.resetPosition(
+                for: token,
+                animated: true
+            )
         }
     }
 
-    /// Minimizes the banner and moves it to the resolver-provided target point.
+    /// Minimizes the banner and moves it to the resolved target position.
     ///
     /// Steps:
-    /// - Updates `state.isMinimized` so SwiftUI renders the minimized UI.
-    /// - Disables dragging to avoid conflicts with a minimized bubble.
-    /// - Requests a relayout to re-measure the minimized content size.
-    /// - Moves the banner window to the resolved target point.
+    /// - Updates shared state to trigger minimized SwiftUI rendering.
+    /// - Disables dragging to avoid interaction conflicts.
+    /// - Requests a layout re-measure for compact content.
+    /// - Moves the banner to the resolver-defined point.
     private func minimize(_ state: LucidBannerState) {
         guard let token = currentToken else { return }
 
@@ -212,7 +253,7 @@ public final class LucidBannerMinimizeCoordinator {
         // Disable dragging while minimized.
         LucidBanner.shared.setDraggingEnabled(false, for: token)
 
-        // Re-measure for the compact (minimized) SwiftUI layout.
+        // Re-measure compact layout.
         LucidBanner.shared.requestRelayout(animated: false)
 
         if let target = resolvedMinimizePoint(for: token, state: state) {
@@ -228,10 +269,10 @@ public final class LucidBannerMinimizeCoordinator {
     /// Restores the banner to its expanded state and canonical position.
     ///
     /// Steps:
-    /// - Updates `state.isMinimized` so SwiftUI renders the expanded UI.
-    /// - Re-enables dragging if the banner was configured as draggable.
-    /// - Requests a relayout to re-measure the expanded content size.
-    /// - Resets the banner to the canonical position managed by LucidBanner.
+    /// - Updates shared state to trigger expanded SwiftUI rendering.
+    /// - Re-enables dragging if configured.
+    /// - Requests a layout re-measure for expanded content.
+    /// - Resets the banner to its standard position.
     private func maximize(_ state: LucidBannerState) {
         guard let token = currentToken else { return }
 
@@ -241,7 +282,7 @@ public final class LucidBannerMinimizeCoordinator {
             LucidBanner.shared.setDraggingEnabled(true, for: token)
         }
 
-        // Re-measure for the full SwiftUI layout.
+        // Re-measure expanded layout.
         LucidBanner.shared.requestRelayout(animated: false)
 
         // Restore canonical position.
@@ -251,10 +292,14 @@ public final class LucidBannerMinimizeCoordinator {
     /// Resolves the minimized target point using the registered resolver.
     ///
     /// - Parameters:
-    ///   - token: The active banner token.
-    ///   - state: The current banner state instance.
-    /// - Returns: The target point in window coordinates, or nil if resolution failed.
-    private func resolvedMinimizePoint(for token: Int, state: LucidBannerState) -> CGPoint? {
+    ///   - token: Active banner token.
+    ///   - state: Current banner state.
+    /// - Returns: Target point in window coordinates, or `nil` if resolution fails.
+    private func resolvedMinimizePoint(
+        for token: Int,
+        state: LucidBannerState
+    ) -> CGPoint? {
+
         guard let resolveHandler else { return nil }
 
         guard let hostView = LucidBanner.shared.currentHostView(for: token),

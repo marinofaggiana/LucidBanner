@@ -1,32 +1,71 @@
 //
-//  LucidBanner
+//  LucidBannerState.swift
 //
 //  Created by Marino Faggiana.
 //  Licensed under the MIT License.
 //
-//  Description:
-//  Flexible scene-aware banner system built with SwiftUI + UIKit.
-//  Provides animated, interruptible, queueable in-app notifications,
-//  with optional touch-passthrough, swipe-to-dismiss and auto-dismiss.
+//  Overview:
+//  LucidBannerState is the shared, observable state model driving all
+//  SwiftUI rendering for a LucidBanner instance.
+//
+//  This object represents the *single source of truth* for banner UI.
+//  SwiftUI views are pure functions of this state and never initiate
+//  presentation, dismissal, or side effects on their own.
+//
+//  The state is owned and mutated exclusively by `LucidBanner`
+//  (and its coordinators) and injected into SwiftUI content
+//  for both initial rendering and live updates.
+//
+//  Design principles:
+//  - Observable, but not autonomous.
+//  - Mutable only on the MainActor.
+//  - Safe to subclass for app-specific extensions.
+//  - No presentation logic or UIKit coupling.
 //
 
 import SwiftUI
 import Combine
 
-/// Shared observable state model used by LucidBanner.
+/// Shared observable state used by LucidBanner SwiftUI content.
 ///
-/// Apps may subclass this type to add custom fields or behaviors.
-/// The state is owned by `LucidBanner` and injected into the SwiftUI
-/// content for both initial rendering and live updates.
+/// `LucidBannerState` is intentionally minimal and declarative.
+/// It does not perform any actions; it only exposes data that
+/// describes *what* the banner should render.
+///
+/// Responsibilities:
+/// - Expose the current banner payload to SwiftUI.
+/// - Expose derived UI flags (e.g. minimized state).
+/// - Act as the bridge between the LucidBanner state machine
+///   and passive SwiftUI views.
+///
+/// Ownership:
+/// - Instances are created and owned by `LucidBanner`.
+/// - SwiftUI views must never retain or create their own state instances.
 @MainActor
 open class LucidBannerState: ObservableObject {
-    /// The full banner configuration/state.
-    /// This is the single source of truth for SwiftUI.
+
+    /// Complete banner configuration snapshot.
+    ///
+    /// This payload is the canonical representation of banner state.
+    /// Any change to this value triggers a SwiftUI re-render.
+    ///
+    /// Mutations are performed by `LucidBanner` via explicit update APIs.
     @Published public var payload: LucidBannerPayload
 
-    /// Managed internally by the banner system.
+    /// Indicates whether the banner is currently minimized.
+    ///
+    /// This flag is managed internally by the banner system
+    /// (e.g. `LucidBannerMinimizeCoordinator`) and should be
+    /// treated as read-only by SwiftUI views.
+    ///
+    /// SwiftUI content may *react* to this value
+    /// (e.g. render a compact layout),
+    /// but must not toggle it directly.
     @Published public internal(set) var isMinimized: Bool = false
 
+    /// Creates a new banner state with an initial payload.
+    ///
+    /// - Parameter payload: Initial full configuration snapshot.
     public init(payload: LucidBannerPayload) {
         self.payload = payload
     }
