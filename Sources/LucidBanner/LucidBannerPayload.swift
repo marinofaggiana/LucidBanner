@@ -222,7 +222,7 @@ public extension LucidBannerPayload {
         /// Creates an empty update patch.
         ///
         /// All properties default to `nil`.
-        init(
+        public init(
             // MARK: - Content
             title: String? = nil,
             subtitle: String? = nil,
