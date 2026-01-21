@@ -358,73 +358,29 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// - Parameters:
     ///   - payload: Partial payload describing the updates.
     ///   - token: Optional token to restrict the update.
-    public func update(payload: LucidBannerPayload.Update, for token: Int? = nil) {
-
+    public func update(payload update: LucidBannerPayload.Update, for token: Int? = nil) {
         guard window != nil,
               token == nil || token == activeToken else {
             return
         }
 
-        var needsRelayout = false
         var shouldRescheduleAutoDismiss = false
 
-        // MARK: - Content updates
+        // MARK: - Snapshot before merge
 
-        if let title = payload.title?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty {
-            if title != state.payload.title { needsRelayout = true }
-            state.payload.title = title
-        }
+        let oldPayload = state.payload
 
-        if let subtitle = payload.subtitle?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty {
-            if subtitle != state.payload.subtitle { needsRelayout = true }
-            state.payload.subtitle = subtitle
-        }
+        // MARK: - Merge + semantic diff (single source of truth)
 
-        if let footnote = payload.footnote?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty {
-            if footnote != state.payload.footnote { needsRelayout = true }
-            state.payload.footnote = footnote
-        }
+        let mergeResult = update.merge(into: &state.payload, comparing: oldPayload)
+        let newPayload = state.payload
 
-        if let systemImage = payload.systemImage {
-            if systemImage != state.payload.systemImage { needsRelayout = true }
-            state.payload.systemImage = systemImage
-        }
+        // MARK: - Interaction side effects (driven by diff)
 
-        if let imageAnimation = payload.imageAnimation {
-            state.payload.imageAnimation = imageAnimation
-        }
+        if oldPayload.blocksTouches != newPayload.blocksTouches {
+            let blocksTouches = newPayload.blocksTouches
 
-        if let progress = payload.progress {
-            let clamped = max(0, min(1, progress))
-            if state.payload.progress == nil { needsRelayout = true }
-            state.payload.progress = clamped
-        }
-
-        if let stage = payload.stage {
-            if stage != state.payload.stage { needsRelayout = true }
-            state.payload.stage = stage
-        }
-
-        // MARK: - Appearance updates
-
-        if let backgroundColor = payload.backgroundColor {
-            state.payload.backgroundColor = backgroundColor
-        }
-
-        if let textColor = payload.textColor {
-            state.payload.textColor = textColor
-        }
-
-        if let imageColor = payload.imageColor {
-            state.payload.imageColor = imageColor
-        }
-
-        // MARK: - Interaction updates
-
-        if let blocksTouches = payload.blocksTouches {
             self.blocksTouches = blocksTouches
-            state.payload.blocksTouches = blocksTouches
-
             window?.isPassthrough = !blocksTouches
             window?.accessibilityViewIsModal = blocksTouches
 
@@ -437,42 +393,38 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             panGestureRef?.isEnabled = swipeToDismiss || draggable
         }
 
-        if let draggable = payload.draggable {
+        if oldPayload.draggable != newPayload.draggable {
             ensurePanGestureInstalled()
-            self.draggable = draggable && !blocksTouches
-            state.payload.draggable = draggable
-            panGestureRef?.isEnabled = self.draggable || swipeToDismiss
+            draggable = newPayload.draggable && !blocksTouches
+            panGestureRef?.isEnabled = draggable || swipeToDismiss
         }
 
-        if let swipe = payload.swipeToDismiss {
+        if oldPayload.swipeToDismiss != newPayload.swipeToDismiss {
             ensurePanGestureInstalled()
-            swipeToDismiss = blocksTouches ? false : swipe
+            swipeToDismiss = blocksTouches ? false : newPayload.swipeToDismiss
             panGestureRef?.isEnabled = swipeToDismiss || draggable
         }
 
-        // MARK: - Layout updates
+        // MARK: - Layout properties
 
-        if let v = payload.vPosition {
-            vPosition = v
-            presentedVPosition = v
-            needsRelayout = true
+        if oldPayload.vPosition != newPayload.vPosition {
+            vPosition = newPayload.vPosition
+            presentedVPosition = newPayload.vPosition
         }
 
-        if let m = payload.horizontalMargin {
-            horizontalMargin = m
-            needsRelayout = true
+        if oldPayload.horizontalMargin != newPayload.horizontalMargin {
+            horizontalMargin = newPayload.horizontalMargin
         }
 
-        if let m = payload.verticalMargin {
-            verticalMargin = m
-            needsRelayout = true
+        if oldPayload.verticalMargin != newPayload.verticalMargin {
+            verticalMargin = newPayload.verticalMargin
         }
 
-        // MARK: - Timing updates
+        // MARK: - Timing
 
-        if let autoDismissAfter = payload.autoDismissAfter {
-            self.autoDismissAfter = autoDismissAfter
-            shouldRescheduleAutoDismiss = autoDismissAfter > 0
+        if oldPayload.autoDismissAfter != newPayload.autoDismissAfter {
+            autoDismissAfter = newPayload.autoDismissAfter
+            shouldRescheduleAutoDismiss = newPayload.autoDismissAfter > 0
 
             if !shouldRescheduleAutoDismiss {
                 dismissTimer?.cancel()
@@ -482,9 +434,9 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
         guard let window else { return }
 
-        // MARK: - Layout pass
+        // MARK: - Layout pass (driven by semantic diff)
 
-        if needsRelayout {
+        if mergeResult.needsRelayout {
             if isAnimatingIn || isDismissing {
                 pendingRelayout = true
             } else {

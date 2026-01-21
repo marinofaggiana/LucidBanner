@@ -222,99 +222,194 @@ public extension LucidBannerPayload {
         /// Creates an empty update patch.
         ///
         /// All properties default to `nil`.
-        public init() {}
+        init(
+            // MARK: - Content
+            title: String? = nil,
+            subtitle: String? = nil,
+            footnote: String? = nil,
+            systemImage: String? = nil,
+            imageAnimation: LucidBanner.LucidBannerAnimationStyle? = nil,
+            progress: Double? = nil,
+            stage: LucidBanner.Stage? = nil,
+
+            // MARK: - Appearance
+            backgroundColor: Color? = nil,
+            textColor: Color? = nil,
+            imageColor: Color? = nil,
+
+            // MARK: - Interaction
+            draggable: Bool? = nil,
+            swipeToDismiss: Bool? = nil,
+            blocksTouches: Bool? = nil,
+
+            // MARK: - Layout
+            vPosition: LucidBanner.VerticalPosition? = nil,
+            horizontalMargin: CGFloat? = nil,
+            verticalMargin: CGFloat? = nil,
+
+            // MARK: - Timing
+            autoDismissAfter: TimeInterval? = nil
+        ) {
+            self.title = title
+            self.subtitle = subtitle
+            self.footnote = footnote
+            self.systemImage = systemImage
+            self.imageAnimation = imageAnimation
+            self.progress = progress
+            self.stage = stage
+
+            self.backgroundColor = backgroundColor
+            self.textColor = textColor
+            self.imageColor = imageColor
+
+            self.draggable = draggable
+            self.swipeToDismiss = swipeToDismiss
+            self.blocksTouches = blocksTouches
+
+            self.vPosition = vPosition
+            self.horizontalMargin = horizontalMargin
+            self.verticalMargin = verticalMargin
+
+            self.autoDismissAfter = autoDismissAfter
+        }
     }
 }
 
 // MARK: - Merge Logic
-
 public extension LucidBannerPayload.Update {
+    /// Describes the semantic effects of applying an update patch.
+    ///
+    /// This structure does **not** describe *what* changed,
+    /// but *how the system should react* to the applied changes.
+    ///
+    /// It is intentionally minimal and high-level, so that
+    /// layout and side-effect decisions can be made by the caller
+    /// without re-inspecting the payload.
+    struct MergeResult {
+        /// Indicates that the banner requires a full re-measure / re-layout pass.
+        ///
+        /// This is typically triggered by changes affecting intrinsic size,
+        /// geometry, or content structure (e.g. title, image, progress visibility).
+        var needsRelayout = false
 
-    /// Applies this update patch to an existing payload.
+        /// Indicates that user-visible content has changed.
+        ///
+        /// This flag can be used to trigger content-specific animations
+        /// or accessibility updates, without necessarily re-laying out
+        /// the entire banner.
+        var contentChanged = false
+
+        /// Indicates that the logical stage of the banner has changed.
+        ///
+        /// This is useful for driving stage-based transitions
+        /// (e.g. progress → success / error) or conditional side effects.
+        var stageChanged = false
+    }
+
+    /// Applies this update patch to an existing `LucidBannerPayload`,
+    /// producing a semantic description of the resulting changes.
     ///
-    /// Only non-`nil` fields are merged.
-    /// Sanitization rules (e.g. string trimming, progress clamping)
-    /// are applied during the merge.
+    /// This method performs a **pure, deterministic merge**:
+    /// - Only non-`nil` fields in the update are applied.
+    /// - Existing values are preserved when the corresponding update field is `nil`.
+    /// - Sanitization rules (such as string trimming or progress clamping)
+    ///   are applied during the merge.
     ///
-    /// - Parameter payload: The payload to be mutated in place.
-    func merge(into payload: inout LucidBannerPayload) {
+    /// The method does **not** perform any UI side effects,
+    /// scheduling, gesture updates, or layout operations.
+    /// Those responsibilities are intentionally left to the caller,
+    /// based on the returned `MergeResult`.
+    ///
+    /// - Parameters:
+    ///   - payload: The payload to be mutated in place.
+    ///   - old: A snapshot of the payload *before* the merge,
+    ///          used only for semantic comparison.
+    ///
+    /// - Returns: A `MergeResult` describing the high-level impact
+    ///            of the applied changes.
+    ///
+    /// - Important:
+    ///   This method is designed to be the **single source of truth**
+    ///   for payload mutation. Callers should avoid re-implementing
+    ///   merge or diff logic outside of this API.
+    func merge(into payload: inout LucidBannerPayload, comparing old: LucidBannerPayload) -> MergeResult {
+        var result = MergeResult()
 
         // MARK: - Content
 
         if let title {
-            payload.title = title.trimmedNilIfEmpty
+            let new = title.trimmedNilIfEmpty
+            if payload.title != new {
+                payload.title = new
+                result.needsRelayout = true
+                result.contentChanged = true
+            }
         }
 
         if let subtitle {
-            payload.subtitle = subtitle.trimmedNilIfEmpty
-        }
-
-        if let footnote {
-            payload.footnote = footnote.trimmedNilIfEmpty
+            let new = subtitle.trimmedNilIfEmpty
+            if payload.subtitle != new {
+                payload.subtitle = new
+                result.needsRelayout = true
+                result.contentChanged = true
+            }
         }
 
         if let systemImage {
-            payload.systemImage = systemImage
-        }
-
-        if let imageAnimation {
-            payload.imageAnimation = imageAnimation
+            if payload.systemImage != systemImage {
+                payload.systemImage = systemImage
+                result.needsRelayout = true
+                result.contentChanged = true
+            }
         }
 
         if let progress {
-            payload.progress = max(0, min(1, progress))
+            let clamped = max(0, min(1, progress))
+            if payload.progress == nil {
+                result.needsRelayout = true
+            }
+            payload.progress = clamped
         }
 
         if let stage {
-            payload.stage = stage
+            if payload.stage != stage {
+                payload.stage = stage
+                result.needsRelayout = true
+                result.stageChanged = true
+            }
         }
 
-        // MARK: - Appearance
+        // MARK: - Appearance (no layout impact)
 
-        if let backgroundColor {
-            payload.backgroundColor = backgroundColor
-        }
+        if let backgroundColor { payload.backgroundColor = backgroundColor }
+        if let textColor { payload.textColor = textColor }
+        if let imageColor { payload.imageColor = imageColor }
 
-        if let textColor {
-            payload.textColor = textColor
-        }
+        // MARK: - Interaction / Layout / Timing (pure state)
 
-        if let imageColor {
-            payload.imageColor = imageColor
-        }
-
-        // MARK: - Interaction
-
-        if let draggable {
-            payload.draggable = draggable
-        }
-
-        if let swipeToDismiss {
-            payload.swipeToDismiss = swipeToDismiss
-        }
-
-        if let blocksTouches {
-            payload.blocksTouches = blocksTouches
-        }
-
-        // MARK: - Layout
+        if let draggable { payload.draggable = draggable }
+        if let swipeToDismiss { payload.swipeToDismiss = swipeToDismiss }
+        if let blocksTouches { payload.blocksTouches = blocksTouches }
 
         if let vPosition {
             payload.vPosition = vPosition
+            result.needsRelayout = true
         }
 
         if let horizontalMargin {
             payload.horizontalMargin = horizontalMargin
+            result.needsRelayout = true
         }
 
         if let verticalMargin {
             payload.verticalMargin = verticalMargin
+            result.needsRelayout = true
         }
-
-        // MARK: - Timing
 
         if let autoDismissAfter {
             payload.autoDismissAfter = autoDismissAfter
         }
+
+        return result
     }
 }
