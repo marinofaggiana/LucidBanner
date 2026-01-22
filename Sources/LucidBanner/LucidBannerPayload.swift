@@ -63,6 +63,7 @@ public struct LucidBannerPayload {
     /// Animation style applied to the banner icon.
     ///
     /// This value is declarative and interpreted by SwiftUI.
+    /// Animation changes do not affect layout.
     public var imageAnimation: LucidBanner.LucidBannerAnimationStyle
 
     /// Optional progress value in the range `[0, 1]`.
@@ -118,8 +119,21 @@ public struct LucidBannerPayload {
 
     /// Enables free dragging of the banner.
     ///
-    /// Dragging is automatically disabled when `blocksTouches` is `true`.
+    /// Note: interaction constraints (e.g. disabling dragging when
+    /// `blocksTouches` is `true`) are enforced at presentation time,
+    /// not within the payload itself.
     public var draggable: Bool
+
+    /// Represents an explicit update intent for a single value.
+    ///
+    /// - unchanged: Do not modify the existing value.
+    /// - value: Set or update the value.
+    /// - clear: Explicitly remove the value (set to nil).
+    public enum UpdateValue<T> {
+        case unchanged
+        case value(T)
+        case clear
+    }
 
     // MARK: - Initialization
 
@@ -194,7 +208,7 @@ public extension LucidBannerPayload {
         public var footnote: String?
         public var systemImage: String?
         public var imageAnimation: LucidBanner.LucidBannerAnimationStyle?
-        public var progress: Double?
+        public var progress: UpdateValue<Double> = .unchanged
         public var stage: LucidBanner.Stage?
 
         // MARK: - Appearance
@@ -219,11 +233,14 @@ public extension LucidBannerPayload {
 
         public var autoDismissAfter: TimeInterval?
 
-        /// Creates an empty update patch.
+        /// Creates an update patch.
         ///
-        /// All properties default to `nil`.
+        /// - Note:
+        ///   Progress uses an explicit intent model:
+        ///   - `nil`       → unchanged
+        ///   - value      → set progress
+        ///   - `.nan`     → clear progress
         public init(
-            // MARK: - Content
             title: String? = nil,
             subtitle: String? = nil,
             footnote: String? = nil,
@@ -231,23 +248,15 @@ public extension LucidBannerPayload {
             imageAnimation: LucidBanner.LucidBannerAnimationStyle? = nil,
             progress: Double? = nil,
             stage: LucidBanner.Stage? = nil,
-
-            // MARK: - Appearance
             backgroundColor: Color? = nil,
             textColor: Color? = nil,
             imageColor: Color? = nil,
-
-            // MARK: - Interaction
             draggable: Bool? = nil,
             swipeToDismiss: Bool? = nil,
             blocksTouches: Bool? = nil,
-
-            // MARK: - Layout
             vPosition: LucidBanner.VerticalPosition? = nil,
             horizontalMargin: CGFloat? = nil,
             verticalMargin: CGFloat? = nil,
-
-            // MARK: - Timing
             autoDismissAfter: TimeInterval? = nil
         ) {
             self.title = title
@@ -255,84 +264,52 @@ public extension LucidBannerPayload {
             self.footnote = footnote
             self.systemImage = systemImage
             self.imageAnimation = imageAnimation
-            self.progress = progress
-            self.stage = stage
 
+            if let progress {
+                self.progress = progress.isNaN ? .clear : .value(progress)
+            } else {
+                self.progress = .unchanged
+            }
+
+            self.stage = stage
             self.backgroundColor = backgroundColor
             self.textColor = textColor
             self.imageColor = imageColor
-
             self.draggable = draggable
             self.swipeToDismiss = swipeToDismiss
             self.blocksTouches = blocksTouches
-
             self.vPosition = vPosition
             self.horizontalMargin = horizontalMargin
             self.verticalMargin = verticalMargin
-
             self.autoDismissAfter = autoDismissAfter
         }
     }
 }
 
 // MARK: - Merge Logic
+
 public extension LucidBannerPayload.Update {
+
     /// Describes the semantic effects of applying an update patch.
     ///
-    /// This structure does **not** describe *what* changed,
-    /// but *how the system should react* to the applied changes.
-    ///
-    /// It is intentionally minimal and high-level, so that
-    /// layout and side-effect decisions can be made by the caller
-    /// without re-inspecting the payload.
+    /// This structure describes *how the system should react* to changes,
+    /// not the specific values that changed.
     struct MergeResult {
-        /// Indicates that the banner requires a full re-measure / re-layout pass.
-        ///
-        /// This is typically triggered by changes affecting intrinsic size,
-        /// geometry, or content structure (e.g. title, image, progress visibility).
         var needsRelayout = false
-
-        /// Indicates that user-visible content has changed.
-        ///
-        /// This flag can be used to trigger content-specific animations
-        /// or accessibility updates, without necessarily re-laying out
-        /// the entire banner.
         var contentChanged = false
-
-        /// Indicates that the logical stage of the banner has changed.
-        ///
-        /// This is useful for driving stage-based transitions
-        /// (e.g. progress → success / error) or conditional side effects.
         var stageChanged = false
     }
 
-    /// Applies this update patch to an existing `LucidBannerPayload`,
-    /// producing a semantic description of the resulting changes.
+    /// Applies this update patch to an existing `LucidBannerPayload`.
     ///
-    /// This method performs a **pure, deterministic merge**:
-    /// - Only non-`nil` fields in the update are applied.
-    /// - Existing values are preserved when the corresponding update field is `nil`.
-    /// - Sanitization rules (such as string trimming or progress clamping)
-    ///   are applied during the merge.
+    /// This method performs a pure, deterministic merge:
+    /// - Only non-`nil` fields are applied.
+    /// - Existing values are preserved otherwise.
+    /// - Sanitization and clamping are enforced during the merge.
     ///
-    /// The method does **not** perform any UI side effects,
-    /// scheduling, gesture updates, or layout operations.
-    /// Those responsibilities are intentionally left to the caller,
-    /// based on the returned `MergeResult`.
-    ///
-    /// - Parameters:
-    ///   - payload: The payload to be mutated in place.
-    ///   - old: A snapshot of the payload *before* the merge,
-    ///          used only for semantic comparison.
-    ///
-    /// - Returns: A `MergeResult` describing the high-level impact
-    ///            of the applied changes.
-    ///
-    /// - Important:
-    ///   This method is designed to be the **single source of truth**
-    ///   for payload mutation. Callers should avoid re-implementing
-    ///   merge or diff logic outside of this API.
-    func merge(into payload: inout LucidBannerPayload, comparing old: LucidBannerPayload) -> MergeResult {
+    /// No UI side effects are performed here.
+    func merge(into payload: inout LucidBannerPayload) -> MergeResult {
+
         var result = MergeResult()
 
         // MARK: - Content
@@ -355,6 +332,15 @@ public extension LucidBannerPayload.Update {
             }
         }
 
+        if let footnote {
+            let new = footnote.trimmedNilIfEmpty
+            if payload.footnote != new {
+                payload.footnote = new
+                result.needsRelayout = true
+                result.contentChanged = true
+            }
+        }
+
         if let systemImage {
             if payload.systemImage != systemImage {
                 payload.systemImage = systemImage
@@ -363,13 +349,38 @@ public extension LucidBannerPayload.Update {
             }
         }
 
-        if let progress {
-            let clamped = max(0, min(1, progress))
-            if payload.progress == nil {
-                result.needsRelayout = true
+        if let imageAnimation {
+            if payload.imageAnimation != imageAnimation {
+                payload.imageAnimation = imageAnimation
+                result.contentChanged = true
             }
-            payload.progress = clamped
         }
+
+        // MARK: - Progress (explicit intent)
+
+        switch progress {
+        case .unchanged:
+            break
+
+        case .value(let value):
+            let clamped = max(0, min(1, value))
+            if payload.progress != clamped {
+                if payload.progress == nil {
+                    result.needsRelayout = true
+                }
+                payload.progress = clamped
+                result.contentChanged = true
+            }
+
+        case .clear:
+            if payload.progress != nil {
+                payload.progress = nil
+                result.needsRelayout = true
+                result.contentChanged = true
+            }
+        }
+
+        // MARK: - Stage
 
         if let stage {
             if payload.stage != stage {
@@ -379,32 +390,36 @@ public extension LucidBannerPayload.Update {
             }
         }
 
-        // MARK: - Appearance (no layout impact)
+        // MARK: - Appearance
 
         if let backgroundColor { payload.backgroundColor = backgroundColor }
         if let textColor { payload.textColor = textColor }
         if let imageColor { payload.imageColor = imageColor }
 
-        // MARK: - Interaction / Layout / Timing (pure state)
+        // MARK: - Interaction
 
         if let draggable { payload.draggable = draggable }
         if let swipeToDismiss { payload.swipeToDismiss = swipeToDismiss }
         if let blocksTouches { payload.blocksTouches = blocksTouches }
 
-        if let vPosition {
+        // MARK: - Layout
+
+        if let vPosition, payload.vPosition != vPosition {
             payload.vPosition = vPosition
             result.needsRelayout = true
         }
 
-        if let horizontalMargin {
+        if let horizontalMargin, payload.horizontalMargin != horizontalMargin {
             payload.horizontalMargin = horizontalMargin
             result.needsRelayout = true
         }
 
-        if let verticalMargin {
+        if let verticalMargin, payload.verticalMargin != verticalMargin {
             payload.verticalMargin = verticalMargin
             result.needsRelayout = true
         }
+
+        // MARK: - Timing
 
         if let autoDismissAfter {
             payload.autoDismissAfter = autoDismissAfter

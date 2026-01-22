@@ -370,40 +370,56 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
         let oldPayload = state.payload
 
-        // MARK: - Merge + semantic diff (single source of truth)
+        // MARK: - Merge (single source of truth)
 
-        let mergeResult = update.merge(into: &state.payload, comparing: oldPayload)
+        let mergeResult = update.merge(into: &state.payload)
         let newPayload = state.payload
 
-        // MARK: - Interaction side effects (driven by diff)
+        guard let window else {
+            return
+        }
 
-        if oldPayload.blocksTouches != newPayload.blocksTouches {
-            let blocksTouches = newPayload.blocksTouches
+        // MARK: - Resolve interaction intents
 
-            self.blocksTouches = blocksTouches
-            window?.isPassthrough = !blocksTouches
-            window?.accessibilityViewIsModal = blocksTouches
+        let wantsBlocksTouches = newPayload.blocksTouches
+        let wantsSwipeToDismiss = newPayload.swipeToDismiss
+        let wantsDraggable = newPayload.draggable
+
+        // MARK: - Apply blocking changes
+
+        if oldPayload.blocksTouches != wantsBlocksTouches {
+            blocksTouches = wantsBlocksTouches
+
+            window.isPassthrough = !blocksTouches
+            window.accessibilityViewIsModal = blocksTouches
 
             scrimView?.isUserInteractionEnabled = blocksTouches
             scrimView?.backgroundColor = UIColor.black.withAlphaComponent(
                 blocksTouches ? 0.08 : 0.0
             )
-
-            swipeToDismiss = blocksTouches ? false : swipeToDismiss
-            panGestureRef?.isEnabled = swipeToDismiss || draggable
         }
 
-        if oldPayload.draggable != newPayload.draggable {
+        // MARK: - Resolve effective interaction modes
+
+        let effectiveSwipeToDismiss = !blocksTouches && wantsSwipeToDismiss
+        let effectiveDraggable = !blocksTouches && wantsDraggable
+
+        // MARK: - Apply swipe-to-dismiss
+
+        if swipeToDismiss != effectiveSwipeToDismiss {
             ensurePanGestureInstalled()
-            draggable = newPayload.draggable && !blocksTouches
-            panGestureRef?.isEnabled = draggable || swipeToDismiss
+            swipeToDismiss = effectiveSwipeToDismiss
         }
 
-        if oldPayload.swipeToDismiss != newPayload.swipeToDismiss {
+        // MARK: - Apply draggable
+
+        if draggable != effectiveDraggable {
             ensurePanGestureInstalled()
-            swipeToDismiss = blocksTouches ? false : newPayload.swipeToDismiss
-            panGestureRef?.isEnabled = swipeToDismiss || draggable
+            draggable = effectiveDraggable
         }
+
+        // Enable or disable pan gesture once, deterministically
+        panGestureRef?.isEnabled = swipeToDismiss || draggable
 
         // MARK: - Layout properties
 
@@ -431,8 +447,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                 dismissTimer = nil
             }
         }
-
-        guard let window else { return }
 
         // MARK: - Layout pass (driven by semantic diff)
 
