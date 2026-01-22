@@ -293,8 +293,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         payload: LucidBannerPayload,
         policy: ShowPolicy = .enqueue,
         onTap: ((_ token: Int?, _ stage: LucidBanner.Stage?) -> Void)? = nil,
-        @ViewBuilder content: @escaping (LucidBannerState) -> Content
-    ) -> Int {
+        @ViewBuilder content: @escaping (LucidBannerState) -> Content) -> Int {
 
         // Bind SwiftUI content to the shared state.
         let viewFactory: (LucidBannerState) -> AnyView = {
@@ -366,11 +365,11 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
         var shouldRescheduleAutoDismiss = false
 
-        // MARK: - Snapshot before merge
+        // Snapshot before merge
 
         let oldPayload = state.payload
 
-        // MARK: - Merge (single source of truth)
+        // Merge (single source of truth)
 
         let mergeResult = update.merge(into: &state.payload)
         let newPayload = state.payload
@@ -379,13 +378,13 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             return
         }
 
-        // MARK: - Resolve interaction intents
+        // Resolve interaction intents
 
         let wantsBlocksTouches = newPayload.blocksTouches
         let wantsSwipeToDismiss = newPayload.swipeToDismiss
         let wantsDraggable = newPayload.draggable
 
-        // MARK: - Apply blocking changes
+        // Apply blocking changes
 
         if oldPayload.blocksTouches != wantsBlocksTouches {
             blocksTouches = wantsBlocksTouches
@@ -399,19 +398,19 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             )
         }
 
-        // MARK: - Resolve effective interaction modes
+        // Resolve effective interaction modes
 
         let effectiveSwipeToDismiss = !blocksTouches && wantsSwipeToDismiss
         let effectiveDraggable = !blocksTouches && wantsDraggable
 
-        // MARK: - Apply swipe-to-dismiss
+        // Apply swipe-to-dismiss
 
         if swipeToDismiss != effectiveSwipeToDismiss {
             ensurePanGestureInstalled()
             swipeToDismiss = effectiveSwipeToDismiss
         }
 
-        // MARK: - Apply draggable
+        // Apply draggable
 
         if draggable != effectiveDraggable {
             ensurePanGestureInstalled()
@@ -421,7 +420,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         // Enable or disable pan gesture once, deterministically
         panGestureRef?.isEnabled = swipeToDismiss || draggable
 
-        // MARK: - Layout properties
+        // Layout properties
 
         if oldPayload.vPosition != newPayload.vPosition {
             vPosition = newPayload.vPosition
@@ -436,7 +435,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             verticalMargin = newPayload.verticalMargin
         }
 
-        // MARK: - Timing
+        // Timing
 
         if oldPayload.autoDismissAfter != newPayload.autoDismissAfter {
             autoDismissAfter = newPayload.autoDismissAfter
@@ -448,7 +447,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             }
         }
 
-        // MARK: - Layout pass (driven by semantic diff)
+        // Layout pass (driven by semantic diff)
 
         if mergeResult.needsRelayout {
             if isAnimatingIn || isDismissing {
@@ -462,7 +461,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             }
         }
 
-        // MARK: - Auto-dismiss reschedule
+        // Auto-dismiss reschedule
 
         if shouldRescheduleAutoDismiss {
             scheduleAutoDismiss()
@@ -649,11 +648,15 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                 hostView.layer.shadowOpacity = 0
                 window.layoutIfNeeded()
             } completion: { _ in
+                if let constraint = self.heightConstraint {
+                    constraint.isActive = false
+                    self.heightConstraint = nil
+                }
 
                 self.hostController = nil
                 window.isHidden = true
                 self.window = nil
-                self.heightConstraint = nil
+
                 self.isDismissing = false
                 self.panGestureRef = nil
                 self.scrimView = nil
@@ -819,7 +822,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     private func attachWindowAndPresent() {
         guard let scene = self.scene else { return }
 
-        // MARK: - Window
+        // Window
 
         let window = LucidBannerWindow(windowScene: scene)
         window.windowLevel = .statusBar + 1
@@ -827,7 +830,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         window.isPassthrough = !blocksTouches
         window.accessibilityViewIsModal = blocksTouches
 
-        // MARK: - Root Container
+        // Root Container
 
         let root = UIView()
         root.backgroundColor = .clear
@@ -836,7 +839,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         rootViewController.view = root
         window.rootViewController = rootViewController
 
-        // MARK: - SwiftUI Hosting
+        // SwiftUI Hosting
 
         let content = contentView?(state) ?? AnyView(EmptyView())
         let host = UIHostingController(rootView: content)
@@ -847,7 +850,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         root.addSubview(host.view)
         host.didMove(toParent: rootViewController)
 
-        // MARK: - Scrim (Touch Blocking)
+        // Scrim (Touch Blocking)
 
         let scrim = UIControl()
         scrim.translatesAutoresizingMaskIntoConstraints = false
@@ -864,7 +867,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             scrim.bottomAnchor.constraint(equalTo: root.bottomAnchor)
         ])
 
-        // MARK: - Layout Constraints
+        // Layout Constraints
 
         let guide = root.safeAreaLayoutGuide
         let useSafeArea = LucidBanner.useSafeArea
@@ -896,7 +899,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             host.view.trailingAnchor.constraint(equalTo: trailing, constant: -horizontalMargin)
         ])
 
-        // MARK: - Gestures
+        // Gestures
 
         window.hitTargetView = host.view
 
@@ -905,13 +908,13 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         tap.delegate = self
         host.view.addGestureRecognizer(tap)
 
-        // MARK: - Accessibility
+        // Accessibility
 
         host.view.isAccessibilityElement = true
         host.view.accessibilityTraits.insert(.button)
         host.view.accessibilityLabel = "Banner"
 
-        // MARK: - Finalize References
+        // Finalize References
 
         self.window = window
         self.hostController = host
@@ -919,13 +922,13 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         ensurePanGestureInstalled()
         panGestureRef?.isEnabled = swipeToDismiss || draggable
 
-        // MARK: - Layout Change Observation
+        // Layout Change Observation
 
         window.onLayoutChange = { [weak self] in
             self?.pendingRelayout = true
         }
 
-        // MARK: - Presentation Animation
+        // Presentation Animation
 
         presentedVPosition = vPosition
         interactionUnlockTime = CACurrentMediaTime() + 0.25
@@ -1148,7 +1151,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         // Prevent interaction during initial animation.
         if CACurrentMediaTime() < interactionUnlockTime { return }
 
-        // MARK: - Drag Mode
+        // Drag Mode
 
         if draggable {
             guard let container = view.superview else { return }
@@ -1203,7 +1206,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             return
         }
 
-        // MARK: - Swipe-to-Dismiss Mode
+        // Swipe-to-Dismiss Mode
 
         let translation = g.translation(in: view)
         let dy = translation.y

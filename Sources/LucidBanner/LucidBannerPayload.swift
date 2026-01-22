@@ -201,7 +201,7 @@ public extension LucidBannerPayload {
     /// - Non-`nil` fields overwrite the existing payload.
     struct Update {
 
-        // MARK: - Content
+        // Content
 
         public var title: String?
         public var subtitle: String?
@@ -211,25 +211,25 @@ public extension LucidBannerPayload {
         public var progress: UpdateValue<Double> = .unchanged
         public var stage: LucidBanner.Stage?
 
-        // MARK: - Appearance
+        // Appearance
 
         public var backgroundColor: Color?
         public var textColor: Color?
         public var imageColor: Color?
 
-        // MARK: - Interaction
+        // Interaction
 
         public var draggable: Bool?
         public var swipeToDismiss: Bool?
         public var blocksTouches: Bool?
 
-        // MARK: - Layout
+        // Layout
 
         public var vPosition: LucidBanner.VerticalPosition?
         public var horizontalMargin: CGFloat?
         public var verticalMargin: CGFloat?
 
-        // MARK: - Timing
+        // Timing
 
         public var autoDismissAfter: TimeInterval?
 
@@ -312,7 +312,7 @@ public extension LucidBannerPayload.Update {
 
         var result = MergeResult()
 
-        // MARK: - Content
+        // Content
 
         if let title {
             let new = title.trimmedNilIfEmpty
@@ -356,7 +356,7 @@ public extension LucidBannerPayload.Update {
             }
         }
 
-        // MARK: - Progress (explicit intent)
+        // Progress (explicit intent)
 
         switch progress {
         case .unchanged:
@@ -380,7 +380,7 @@ public extension LucidBannerPayload.Update {
             }
         }
 
-        // MARK: - Stage
+        // Stage
 
         if let stage {
             if payload.stage != stage {
@@ -390,19 +390,19 @@ public extension LucidBannerPayload.Update {
             }
         }
 
-        // MARK: - Appearance
+        // Appearance
 
         if let backgroundColor { payload.backgroundColor = backgroundColor }
         if let textColor { payload.textColor = textColor }
         if let imageColor { payload.imageColor = imageColor }
 
-        // MARK: - Interaction
+        // Interaction
 
         if let draggable { payload.draggable = draggable }
         if let swipeToDismiss { payload.swipeToDismiss = swipeToDismiss }
         if let blocksTouches { payload.blocksTouches = blocksTouches }
 
-        // MARK: - Layout
+        // Layout
 
         if let vPosition, payload.vPosition != vPosition {
             payload.vPosition = vPosition
@@ -419,7 +419,7 @@ public extension LucidBannerPayload.Update {
             result.needsRelayout = true
         }
 
-        // MARK: - Timing
+        // Timing
 
         if let autoDismissAfter {
             payload.autoDismissAfter = autoDismissAfter
