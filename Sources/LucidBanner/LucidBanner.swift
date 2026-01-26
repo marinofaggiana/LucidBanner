@@ -767,38 +767,38 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
     // MARK: - Internals: Queue & Presentation
 
-        /// Applies a queued banner configuration to internal state
-        /// before presentation.
-        private func applyPending(_ p: PendingShow) {
-            scene = p.scene
-            state.isMinimized = false
-            state.payload = p.payload
+    /// Applies a queued banner configuration to internal state
+    /// before presentation.
+    private func applyPending(_ p: PendingShow) {
+        scene = p.scene
+        state.variant = .standard
+        state.payload = p.payload
 
-            vPosition = p.payload.vPosition
-            horizontalMargin = p.payload.horizontalMargin
-            verticalMargin = p.payload.verticalMargin
+        vPosition = p.payload.vPosition
+        horizontalMargin = p.payload.horizontalMargin
+        verticalMargin = p.payload.verticalMargin
 
-            autoDismissAfter = p.payload.autoDismissAfter
-            blocksTouches = p.payload.blocksTouches
-            draggable = p.payload.draggable && !p.payload.blocksTouches
-            swipeToDismiss = p.payload.blocksTouches ? false : p.payload.swipeToDismiss
+        autoDismissAfter = p.payload.autoDismissAfter
+        blocksTouches = p.payload.blocksTouches
+        draggable = p.payload.draggable && !p.payload.blocksTouches
+        swipeToDismiss = p.payload.blocksTouches ? false : p.payload.swipeToDismiss
 
-            onTap = p.onTap
-        }
+        onTap = p.onTap
+    }
 
-        /// Dequeues and presents the next banner, if possible.
-        private func dequeueAndStartIfNeeded() {
-            guard !isPresenting, !isDismissing, window == nil else { return }
-            guard let next = queue.first else { return }
+    /// Dequeues and presents the next banner, if possible.
+    private func dequeueAndStartIfNeeded() {
+        guard !isPresenting, !isDismissing, window == nil else { return }
+        guard let next = queue.first else { return }
 
-            queue.removeFirst()
-            activeToken = next.token
-            presentedVPosition = next.payload.vPosition
+        queue.removeFirst()
+        activeToken = next.token
+        presentedVPosition = next.payload.vPosition
 
-            applyPending(next)
-            isPresenting = true
-            startShow(with: next.viewUI)
-        }
+        applyPending(next)
+        isPresenting = true
+        startShow(with: next.viewUI)
+    }
 
     // MARK: - Internals: Window Attachment & Layout
 

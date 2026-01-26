@@ -55,7 +55,7 @@ struct ContentView: View {
 
             Button("Update Progress") {
                 var update = LucidBannerPayload.Update()
-                update.progress = 0.75
+                update.progress = .value(0.75)
                 LucidBanner.shared.update(payload: update, for: lastToken)
             }
 

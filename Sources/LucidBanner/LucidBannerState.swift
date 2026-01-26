@@ -34,7 +34,7 @@ import Combine
 ///
 /// Responsibilities:
 /// - Expose the current banner payload to SwiftUI.
-/// - Expose derived UI flags (e.g. minimized state).
+/// - Expose derived UI flags (e.g. variant state).
 /// - Act as the bridge between the LucidBanner state machine
 ///   and passive SwiftUI views.
 ///
@@ -52,16 +52,24 @@ open class LucidBannerState: ObservableObject {
     /// Mutations are performed by `LucidBanner` via explicit update APIs.
     @Published public var payload: LucidBannerPayload
 
-    /// Indicates whether the banner is currently minimized.
+    /// Indicates which visual representation of the banner is currently active.
     ///
-    /// This flag is managed internally by the banner system
-    /// (e.g. `LucidBannerMinimizeCoordinator`) and should be
-    /// treated as read-only by SwiftUI views.
+    /// This flag does **not** imply a reduction, collapse, or hierarchy change.
+    /// It simply represents an alternate visual variant of the same banner,
+    /// selected by the banner system.
+    ///
+    /// The value is managed internally by LucidBanner
+    /// (e.g. via a coordinator) and must be treated as read-only
+    /// by SwiftUI views.
     ///
     /// SwiftUI content may *react* to this value
-    /// (e.g. render a compact layout),
+    /// (e.g. switch between different visual layouts or styles),
     /// but must not toggle it directly.
-    @Published public internal(set) var isMinimized: Bool = false
+    public enum BannerVariant {
+        case standard
+        case alternate
+    }
+    @Published var variant: BannerVariant = .standard
 
     /// Creates a new banner state with an initial payload.
     ///
