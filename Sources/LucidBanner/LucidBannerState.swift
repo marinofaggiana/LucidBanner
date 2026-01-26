@@ -1,105 +1,80 @@
 //
-//  LucidBanner
+//  LucidBannerState.swift
 //
 //  Created by Marino Faggiana.
 //  Licensed under the MIT License.
 //
-//  Description:
-//  Flexible scene-aware banner system built with SwiftUI + UIKit.
-//  Provides animated, interruptible, queueable in-app notifications,
-//  with optional touch-passthrough, swipe-to-dismiss and auto-dismiss.
+//  Overview:
+//  LucidBannerState is the shared, observable state model driving all
+//  SwiftUI rendering for a LucidBanner instance.
+//
+//  This object represents the *single source of truth* for banner UI.
+//  SwiftUI views are pure functions of this state and never initiate
+//  presentation, dismissal, or side effects on their own.
+//
+//  The state is owned and mutated exclusively by `LucidBanner`
+//  (and its coordinators) and injected into SwiftUI content
+//  for both initial rendering and live updates.
+//
+//  Design principles:
+//  - Observable, but not autonomous.
+//  - Mutable only on the MainActor.
+//  - Safe to subclass for app-specific extensions.
+//  - No presentation logic or UIKit coupling.
 //
 
 import SwiftUI
 import Combine
 
-/// Shared observable state model used by LucidBanner.
+/// Shared observable state used by LucidBanner SwiftUI content.
 ///
-/// Apps may subclass this type to add custom fields or behaviors.
-/// The state is owned by `LucidBanner` and injected into the SwiftUI
-/// content for both initial rendering and live updates.
+/// `LucidBannerState` is intentionally minimal and declarative.
+/// It does not perform any actions; it only exposes data that
+/// describes *what* the banner should render.
+///
+/// Responsibilities:
+/// - Expose the current banner payload to SwiftUI.
+/// - Expose derived UI flags (e.g. variant state).
+/// - Act as the bridge between the LucidBanner state machine
+///   and passive SwiftUI views.
+///
+/// Ownership:
+/// - Instances are created and owned by `LucidBanner`.
+/// - SwiftUI views must never retain or create their own state instances.
 @MainActor
 open class LucidBannerState: ObservableObject {
 
-    // MARK: - Text
-
-    /// Main title text. `nil` means no title is shown.
-    @Published public var title: String?
-
-    /// Optional secondary text placed below the title.
-    @Published public var subtitle: String?
-
-    /// Optional small text used for status or additional context.
-    @Published public var footnote: String?
-
-    @Published public var textColor: Color
-
-    // MARK: - Icon & animation
-
-    /// System symbol name used for the leading icon (e.g. `"arrow.up.circle"`).
-    @Published public var systemImage: String?
-
-    @Published public var imageColor: Color
-
-    /// Current animation style applied to the banner icon.
-    @Published public var imageAnimation: LucidBanner.LucidBannerAnimationStyle
-
-    // MARK: - Progress
-
-    /// Optional progress value in the `0...1` range.
-    /// When `nil`, the progress view is hidden.
-    @Published public var progress: Double?
-
-    // MARK: - Misc
-
-    /// Optional semantic stage string associated with the banner.
-    /// Used for external logic, analytics or styling decisions.
-    @Published public var stage: String?
-
-    /// Indicates whether the SwiftUI layout should render the banner
-    /// in a compact, minimized form. The library does not enforce any
-    /// visual style; the SwiftUI content decides how to react.
-    @Published public var isMinimized: Bool = false
-
-    /// When `true`, the banner can be dragged freely instead of only swiped to dismiss.
-    @Published public var draggable: Bool = false
-
-    @Published public var backgroundColor: Color
-
-    /// Creates a new shared state object for a LucidBanner.
+    /// Complete banner configuration snapshot.
     ///
-    /// Empty strings for textual fields are automatically normalized to `nil`
-    /// to avoid rendering empty labels in the SwiftUI view layer.
+    /// This payload is the canonical representation of banner state.
+    /// Any change to this value triggers a SwiftUI re-render.
     ///
-    /// - Parameters:
-    ///   - title: Optional main title text.
-    ///   - subtitle: Optional subtitle text.
-    ///   - footnote: Optional small footnote text.
-    ///   - systemImage: SF Symbol name displayed as the icon.
-    ///   - imageAnimation: Animation applied to the icon.
-    ///   - progress: Optional progress value (`0...1`).
-    ///   - stage: Optional stage identifier string.
-    public init(title: String? = nil,
-                subtitle: String? = nil,
-                footnote: String? = nil,
-                textColor: Color = .primary,
-                systemImage: String? = nil,
-                imageAnimation: LucidBanner.LucidBannerAnimationStyle,
-                imageColor: Color = .primary,
-                backgroundColor: Color = .clear,
-                progress: Double? = nil,
-                draggable: Bool = false,
-                stage: String? = nil) {
-        self.title = (title?.isEmpty == true) ? nil : title
-        self.subtitle = (subtitle?.isEmpty == true) ? nil : subtitle
-        self.footnote = (footnote?.isEmpty == true) ? nil : footnote
-        self.textColor = textColor
-        self.systemImage = systemImage
-        self.imageAnimation = imageAnimation
-        self.imageColor = imageColor
-        self.backgroundColor = backgroundColor
-        self.progress = progress
-        self.draggable = draggable
-        self.stage = stage
+    /// Mutations are performed by `LucidBanner` via explicit update APIs.
+    @Published public var payload: LucidBannerPayload
+
+    /// Indicates which visual representation of the banner is currently active.
+    ///
+    /// This flag does **not** imply a reduction, collapse, or hierarchy change.
+    /// It simply represents an alternate visual variant of the same banner,
+    /// selected by the banner system.
+    ///
+    /// The value is managed internally by LucidBanner
+    /// (e.g. via a coordinator) and must be treated as read-only
+    /// by SwiftUI views.
+    ///
+    /// SwiftUI content may *react* to this value
+    /// (e.g. switch between different visual layouts or styles),
+    /// but must not toggle it directly.
+    public enum BannerVariant {
+        case standard
+        case alternate
+    }
+    @Published public var variant: BannerVariant = .standard
+
+    /// Creates a new banner state with an initial payload.
+    ///
+    /// - Parameter payload: Initial full configuration snapshot.
+    public init(payload: LucidBannerPayload) {
+        self.payload = payload
     }
 }
