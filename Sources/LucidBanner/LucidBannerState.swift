@@ -69,7 +69,7 @@ open class LucidBannerState: ObservableObject {
         case standard
         case alternate
     }
-    @Published var variant: BannerVariant = .standard
+    @Published public var variant: BannerVariant = .standard
 
     /// Creates a new banner state with an initial payload.
     ///
