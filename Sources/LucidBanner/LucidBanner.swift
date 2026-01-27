@@ -178,10 +178,10 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     private var vPosition: VerticalPosition = .top
 
     /// Horizontal margin applied to the banner.
-    private var horizontalMargin: CGFloat = 12
+    private var horizontalMargin: CGFloat = 0
 
     /// Vertical margin applied to the banner.
-    private var verticalMargin: CGFloat = 10
+    private var verticalMargin: CGFloat = 0
 
     /// Actual vertical position used during presentation.
     private var presentedVPosition: VerticalPosition = .top
