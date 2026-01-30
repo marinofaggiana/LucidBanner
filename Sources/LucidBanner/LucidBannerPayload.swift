@@ -251,13 +251,13 @@ public extension LucidBannerPayload {
             backgroundColor: Color? = nil,
             textColor: Color? = nil,
             imageColor: Color? = nil,
-            draggable: Bool? = nil,
-            swipeToDismiss: Bool? = nil,
-            blocksTouches: Bool? = nil,
             vPosition: LucidBanner.VerticalPosition? = nil,
             horizontalMargin: CGFloat? = nil,
             verticalMargin: CGFloat? = nil,
-            autoDismissAfter: TimeInterval? = nil
+            autoDismissAfter: TimeInterval? = nil,
+            swipeToDismiss: Bool? = nil,
+            blocksTouches: Bool? = nil,
+            draggable: Bool? = nil
         ) {
             self.title = title
             self.subtitle = subtitle
@@ -275,13 +275,13 @@ public extension LucidBannerPayload {
             self.backgroundColor = backgroundColor
             self.textColor = textColor
             self.imageColor = imageColor
-            self.draggable = draggable
-            self.swipeToDismiss = swipeToDismiss
-            self.blocksTouches = blocksTouches
             self.vPosition = vPosition
             self.horizontalMargin = horizontalMargin
             self.verticalMargin = verticalMargin
             self.autoDismissAfter = autoDismissAfter
+            self.swipeToDismiss = swipeToDismiss
+            self.blocksTouches = blocksTouches
+            self.draggable = draggable
         }
     }
 }
