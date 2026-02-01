@@ -94,11 +94,11 @@ public struct LucidBannerPayload {
     /// Vertical placement of the banner within its window.
     public var vPosition: LucidBanner.VerticalPosition
 
-    /// Horizontal margin applied to the banner container.
-    public var horizontalMargin: CGFloat
-
     /// Vertical margin applied relative to the chosen vertical position.
     public var verticalMargin: CGFloat
+
+    /// Horizontal layout strategy applied to the banner.
+    public var horizontalLayout: LucidBanner.HorizontalLayout
 
     // MARK: - Interaction
 
@@ -149,16 +149,22 @@ public struct LucidBannerPayload {
         title: String? = nil,
         subtitle: String? = nil,
         footnote: String? = nil,
+
         systemImage: String? = nil,
         imageAnimation: LucidBanner.LucidBannerAnimationStyle = .none,
+
         progress: Double? = nil,
+
         stage: LucidBanner.Stage? = nil,
+
         backgroundColor: Color = .clear,
         textColor: Color = .primary,
         imageColor: Color = .primary,
+
         vPosition: LucidBanner.VerticalPosition = .center,
-        horizontalMargin: CGFloat = 0,
         verticalMargin: CGFloat = 0,
+        horizontalLayout: LucidBanner.HorizontalLayout = .stretch(margins: 0),
+
         autoDismissAfter: TimeInterval = 0,
         swipeToDismiss: Bool = false,
         blocksTouches: Bool = false,
@@ -167,9 +173,12 @@ public struct LucidBannerPayload {
         self.title = title?.trimmedNilIfEmpty
         self.subtitle = subtitle?.trimmedNilIfEmpty
         self.footnote = footnote?.trimmedNilIfEmpty
+
         self.systemImage = systemImage
         self.imageAnimation = imageAnimation
+
         self.progress = progress.map { max(0, min(1, $0)) }
+
         self.stage = stage
 
         self.backgroundColor = backgroundColor
@@ -177,8 +186,8 @@ public struct LucidBannerPayload {
         self.imageColor = imageColor
 
         self.vPosition = vPosition
-        self.horizontalMargin = horizontalMargin
         self.verticalMargin = verticalMargin
+        self.horizontalLayout = horizontalLayout
 
         self.autoDismissAfter = autoDismissAfter
         self.swipeToDismiss = swipeToDismiss
@@ -226,8 +235,8 @@ public extension LucidBannerPayload {
         // Layout
 
         public var vPosition: LucidBanner.VerticalPosition?
-        public var horizontalMargin: CGFloat?
         public var verticalMargin: CGFloat?
+        public var horizontalLayout: LucidBanner.HorizontalLayout?
 
         // Timing
 
@@ -244,16 +253,22 @@ public extension LucidBannerPayload {
             title: String? = nil,
             subtitle: String? = nil,
             footnote: String? = nil,
+
             systemImage: String? = nil,
             imageAnimation: LucidBanner.LucidBannerAnimationStyle? = nil,
+
             progress: Double? = nil,
+
             stage: LucidBanner.Stage? = nil,
+
             backgroundColor: Color? = nil,
             textColor: Color? = nil,
             imageColor: Color? = nil,
+
             vPosition: LucidBanner.VerticalPosition? = nil,
-            horizontalMargin: CGFloat? = nil,
             verticalMargin: CGFloat? = nil,
+            horizontalLayout: LucidBanner.HorizontalLayout? = nil,
+
             autoDismissAfter: TimeInterval? = nil,
             swipeToDismiss: Bool? = nil,
             blocksTouches: Bool? = nil,
@@ -262,6 +277,7 @@ public extension LucidBannerPayload {
             self.title = title
             self.subtitle = subtitle
             self.footnote = footnote
+
             self.systemImage = systemImage
             self.imageAnimation = imageAnimation
 
@@ -272,12 +288,15 @@ public extension LucidBannerPayload {
             }
 
             self.stage = stage
+
             self.backgroundColor = backgroundColor
             self.textColor = textColor
             self.imageColor = imageColor
+
             self.vPosition = vPosition
-            self.horizontalMargin = horizontalMargin
             self.verticalMargin = verticalMargin
+            self.horizontalLayout = horizontalLayout
+            
             self.autoDismissAfter = autoDismissAfter
             self.swipeToDismiss = swipeToDismiss
             self.blocksTouches = blocksTouches
@@ -409,13 +428,13 @@ public extension LucidBannerPayload.Update {
             result.needsRelayout = true
         }
 
-        if let horizontalMargin, payload.horizontalMargin != horizontalMargin {
-            payload.horizontalMargin = horizontalMargin
+        if let verticalMargin, payload.verticalMargin != verticalMargin {
+            payload.verticalMargin = verticalMargin
             result.needsRelayout = true
         }
 
-        if let verticalMargin, payload.verticalMargin != verticalMargin {
-            payload.verticalMargin = verticalMargin
+        if let horizontalLayout, payload.horizontalLayout != horizontalLayout {
+            payload.horizontalLayout = horizontalLayout
             result.needsRelayout = true
         }
 

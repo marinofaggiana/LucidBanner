@@ -111,6 +111,44 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         case bottom
     }
 
+    /// Describes how a LucidBanner is positioned and constrained
+    /// along the horizontal axis within its hosting window.
+    ///
+    /// The horizontal layout defines the banner’s relationship
+    /// to the window edges or center, independently from its
+    /// visual variant or content.
+    public enum HorizontalLayout: Equatable {
+        /// Stretches the banner across the available horizontal space.
+        ///
+        /// The banner is constrained using leading and trailing anchors
+        /// relative to the window (or safe area), with symmetric margins.
+        ///
+        /// This layout produces a flexible, full-width banner whose
+        /// final width adapts to the window size.
+        case stretch(margins: CGFloat)
+
+        /// Centers the banner horizontally with a fixed width.
+        ///
+        /// The banner is constrained using a centerX anchor and an
+        /// explicit width constraint, producing a floating, object-like
+        /// presentation independent of the window edges.
+        case centered(width: CGFloat)
+
+        /// Anchors the banner to the leading edge with a fixed width.
+        ///
+        /// The banner is positioned relative to the leading edge of the
+        /// window (or safe area) and given a fixed width. An optional
+        /// offset may be used to introduce additional horizontal spacing.
+        case leading(width: CGFloat, offset: CGFloat = 0)
+
+        /// Anchors the banner to the trailing edge with a fixed width.
+        ///
+        /// The banner is positioned relative to the trailing edge of the
+        /// window (or safe area) and given a fixed width. An optional
+        /// offset may be used to introduce additional horizontal spacing.
+        case trailing(width: CGFloat, offset: CGFloat = 0)
+    }
+
     /// Internal representation of a queued banner request.
     ///
     /// PendingShow encapsulates configuration and content
@@ -171,20 +209,26 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// Height constraint stabilizing banner layout.
     private var heightConstraint: NSLayoutConstraint?
 
+    /// Active horizontal layout constraints.
+    ///
+    /// These constraints are derived from `horizontalLayout`
+    /// and are replaced wholesale on each layout pass.
+    private var horizontalConstraints: [NSLayoutConstraint] = []
+
     /// Minimum allowed banner height.
     private let minHeight: CGFloat = 44
 
     /// Requested vertical position.
     private var vPosition: VerticalPosition = .top
 
-    /// Horizontal margin applied to the banner.
-    private var horizontalMargin: CGFloat = 0
-
-    /// Vertical margin applied to the banner.
-    private var verticalMargin: CGFloat = 0
-
-    /// Actual vertical position used during presentation.
+    /// Effective vertical position used during presentation.
     private var presentedVPosition: VerticalPosition = .top
+
+    /// Horizontal layout intent applied to the banner.
+    private var horizontalLayout: HorizontalLayout = .stretch(margins: 12)
+
+    /// Vertical margin applied relative to the chosen vertical position.
+    private var verticalMargin: CGFloat = 0
 
     // MARK: - Queue
 
@@ -365,20 +409,16 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
         var shouldRescheduleAutoDismiss = false
 
-        // Snapshot before merge
-
+        // Snapshot before merge (semantic diff reference)
         let oldPayload = state.payload
 
         // Merge (single source of truth)
-
         let mergeResult = update.merge(into: &state.payload)
         let newPayload = state.payload
 
-        guard let window else {
-            return
-        }
+        guard let window else { return }
 
-        // Resolve interaction intents
+        // MARK: - Interaction Resolution
 
         let wantsBlocksTouches = newPayload.blocksTouches
         let wantsSwipeToDismiss = newPayload.swipeToDismiss
@@ -403,39 +443,35 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         let effectiveSwipeToDismiss = !blocksTouches && wantsSwipeToDismiss
         let effectiveDraggable = !blocksTouches && wantsDraggable
 
-        // Apply swipe-to-dismiss
-
         if swipeToDismiss != effectiveSwipeToDismiss {
             ensurePanGestureInstalled()
             swipeToDismiss = effectiveSwipeToDismiss
         }
-
-        // Apply draggable
 
         if draggable != effectiveDraggable {
             ensurePanGestureInstalled()
             draggable = effectiveDraggable
         }
 
-        // Enable or disable pan gesture once, deterministically
+        // Enable or disable pan gesture deterministically
         panGestureRef?.isEnabled = swipeToDismiss || draggable
 
-        // Layout properties
+        // MARK: - Layout State
 
         if oldPayload.vPosition != newPayload.vPosition {
             vPosition = newPayload.vPosition
             presentedVPosition = newPayload.vPosition
         }
 
-        if oldPayload.horizontalMargin != newPayload.horizontalMargin {
-            horizontalMargin = newPayload.horizontalMargin
-        }
-
         if oldPayload.verticalMargin != newPayload.verticalMargin {
             verticalMargin = newPayload.verticalMargin
         }
 
-        // Timing
+        if oldPayload.horizontalLayout != newPayload.horizontalLayout {
+            horizontalLayout = newPayload.horizontalLayout
+        }
+
+        // MARK: - Timing
 
         if oldPayload.autoDismissAfter != newPayload.autoDismissAfter {
             autoDismissAfter = newPayload.autoDismissAfter
@@ -447,7 +483,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             }
         }
 
-        // Layout pass (driven by semantic diff)
+        // MARK: - Layout Pass
 
         if mergeResult.needsRelayout {
             if isAnimatingIn || isDismissing {
@@ -461,7 +497,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             }
         }
 
-        // Auto-dismiss reschedule
+        // MARK: - Auto-dismiss
 
         if shouldRescheduleAutoDismiss {
             scheduleAutoDismiss()
@@ -648,6 +684,9 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                 hostView.layer.shadowOpacity = 0
                 window.layoutIfNeeded()
             } completion: { _ in
+                self.horizontalConstraints.forEach { $0.isActive = false }
+                self.horizontalConstraints.removeAll()
+
                 if let constraint = self.heightConstraint {
                     constraint.isActive = false
                     self.heightConstraint = nil
@@ -726,6 +765,12 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                 self.activeToken = nil
                 window.isHidden = true
                 window.rootViewController = nil
+                self.horizontalConstraints.forEach { $0.isActive = false }
+                self.horizontalConstraints.removeAll()
+                if let constraint = self.heightConstraint {
+                    constraint.isActive = false
+                    self.heightConstraint = nil
+                }
                 self.window = nil
                 self.isPresenting = false
                 self.isDismissing = false
@@ -775,8 +820,8 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         state.payload = p.payload
 
         vPosition = p.payload.vPosition
-        horizontalMargin = p.payload.horizontalMargin
         verticalMargin = p.payload.verticalMargin
+        horizontalLayout = p.payload.horizontalLayout
 
         autoDismissAfter = p.payload.autoDismissAfter
         blocksTouches = p.payload.blocksTouches
@@ -894,10 +939,35 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         let leading = useSafeArea ? guide.leadingAnchor : root.leadingAnchor
         let trailing = useSafeArea ? guide.trailingAnchor : root.trailingAnchor
 
-        NSLayoutConstraint.activate([
-            host.view.leadingAnchor.constraint(equalTo: leading, constant: horizontalMargin),
-            host.view.trailingAnchor.constraint(equalTo: trailing, constant: -horizontalMargin)
-        ])
+        // Clear previous horizontal constraints
+        horizontalConstraints.forEach { $0.isActive = false }
+        horizontalConstraints.removeAll()
+
+        switch horizontalLayout {
+
+        case .stretch(let margins):
+            let c1 = host.view.leadingAnchor.constraint(equalTo: leading, constant: margins)
+            let c2 = host.view.trailingAnchor.constraint(equalTo: trailing, constant: -margins)
+            horizontalConstraints = [c1, c2]
+
+        case .centered(let width):
+            let centerX = useSafeArea ? guide.centerXAnchor : root.centerXAnchor
+            let c1 = host.view.centerXAnchor.constraint(equalTo: centerX)
+            let c2 = host.view.widthAnchor.constraint(equalToConstant: width)
+            horizontalConstraints = [c1, c2]
+
+        case .leading(let width, let offset):
+            let c1 = host.view.leadingAnchor.constraint(equalTo: leading, constant: offset)
+            let c2 = host.view.widthAnchor.constraint(equalToConstant: width)
+            horizontalConstraints = [c1, c2]
+
+        case .trailing(let width, let offset):
+            let c1 = host.view.trailingAnchor.constraint(equalTo: trailing, constant: -offset)
+            let c2 = host.view.widthAnchor.constraint(equalToConstant: width)
+            horizontalConstraints = [c1, c2]
+        }
+
+        NSLayoutConstraint.activate(horizontalConstraints)
 
         // Gestures
 
