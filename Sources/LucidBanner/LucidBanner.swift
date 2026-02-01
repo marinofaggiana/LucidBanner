@@ -184,6 +184,9 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// Optional dimming scrim used when touches are blocked.
     private weak var scrimView: UIControl?
 
+    /// Root container view hosting the banner.
+    private weak var rootView: UIView?
+
     // MARK: - Lifecycle Flags
 
     /// Auto-dismiss scheduling task.
@@ -469,6 +472,11 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
         if oldPayload.horizontalLayout != newPayload.horizontalLayout {
             horizontalLayout = newPayload.horizontalLayout
+
+            if let hostView = hostController?.view,
+               let root = rootView {
+                applyHorizontalLayoutConstraints(hostView: hostView, root: root)
+            }
         }
 
         // MARK: - Timing
@@ -646,6 +654,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                 hostController = nil
                 self.window?.isHidden = true
                 self.window = nil
+                self.rootView = nil
                 heightConstraint = nil
                 isPresenting = false
                 isDismissing = false
@@ -879,6 +888,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
         let root = UIView()
         root.backgroundColor = .clear
+        self.rootView = root
 
         let rootViewController = UIViewController()
         rootViewController.view = root
@@ -936,38 +946,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             ).isActive = true
         }
 
-        let leading = useSafeArea ? guide.leadingAnchor : root.leadingAnchor
-        let trailing = useSafeArea ? guide.trailingAnchor : root.trailingAnchor
-
-        // Clear previous horizontal constraints
-        horizontalConstraints.forEach { $0.isActive = false }
-        horizontalConstraints.removeAll()
-
-        switch horizontalLayout {
-
-        case .stretch(let margins):
-            let c1 = host.view.leadingAnchor.constraint(equalTo: leading, constant: margins)
-            let c2 = host.view.trailingAnchor.constraint(equalTo: trailing, constant: -margins)
-            horizontalConstraints = [c1, c2]
-
-        case .centered(let width):
-            let centerX = useSafeArea ? guide.centerXAnchor : root.centerXAnchor
-            let c1 = host.view.centerXAnchor.constraint(equalTo: centerX)
-            let c2 = host.view.widthAnchor.constraint(equalToConstant: width)
-            horizontalConstraints = [c1, c2]
-
-        case .leading(let width, let offset):
-            let c1 = host.view.leadingAnchor.constraint(equalTo: leading, constant: offset)
-            let c2 = host.view.widthAnchor.constraint(equalToConstant: width)
-            horizontalConstraints = [c1, c2]
-
-        case .trailing(let width, let offset):
-            let c1 = host.view.trailingAnchor.constraint(equalTo: trailing, constant: -offset)
-            let c2 = host.view.widthAnchor.constraint(equalToConstant: width)
-            horizontalConstraints = [c1, c2]
-        }
-
-        NSLayoutConstraint.activate(horizontalConstraints)
+        applyHorizontalLayoutConstraints(hostView: host.view, root: root)
 
         // Gestures
 
@@ -1030,6 +1009,44 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                 self.remeasure(animated: false)
             }
         }
+    }
+
+    private func applyHorizontalLayoutConstraints(hostView: UIView, root: UIView) {
+        let guide = root.safeAreaLayoutGuide
+        let useSafeArea = LucidBanner.useSafeArea
+
+        let leading = useSafeArea ? guide.leadingAnchor : root.leadingAnchor
+        let trailing = useSafeArea ? guide.trailingAnchor : root.trailingAnchor
+
+        horizontalConstraints.forEach { $0.isActive = false }
+        horizontalConstraints.removeAll()
+
+        switch horizontalLayout {
+
+        case .stretch(let margins):
+            let c1 = hostView.leadingAnchor.constraint(equalTo: leading, constant: margins)
+            let c2 = hostView.trailingAnchor.constraint(equalTo: trailing, constant: -margins)
+            horizontalConstraints = [c1, c2]
+
+        case .centered(let width):
+            let centerX = useSafeArea ? guide.centerXAnchor : root.centerXAnchor
+            let c1 = hostView.centerXAnchor.constraint(equalTo: centerX)
+            let c2 = hostView.widthAnchor.constraint(equalToConstant: width)
+            horizontalConstraints = [c1, c2]
+
+        case .leading(let width, let offset):
+            let c1 = hostView.leadingAnchor.constraint(equalTo: leading, constant: offset)
+            let c2 = hostView.widthAnchor.constraint(equalToConstant: width)
+            horizontalConstraints = [c1, c2]
+
+        case .trailing(let width, let offset):
+            let c1 = hostView.trailingAnchor.constraint(equalTo: trailing, constant: -offset)
+            let c2 = hostView.widthAnchor.constraint(equalToConstant: width)
+            horizontalConstraints = [c1, c2]
+        }
+
+        NSLayoutConstraint.activate(horizontalConstraints)
+        root.layoutIfNeeded()
     }
 
     // MARK: - Internals: Layout Measurement
