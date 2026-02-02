@@ -5,27 +5,45 @@
 //  Licensed under the MIT License.
 //
 //  Overview:
-//  UI-agnostic coordinator that toggles a single active LucidBanner between
-//  standard and alternate visual variants.
+//  UI-agnostic coordinator that toggles a single active `LucidBanner`
+//  between standard and alternate visual variants.
 //
-//  Variant behavior is resolved externally:
-//  - The alternate target point is mandatory (window coordinates).
-//  - The alternate horizontal layout is optional (applied via LucidBanner.update).
+//  The banner remains the same logical entity.
+//  Only the active variant and on-screen position change.
+//
+//  Variant positioning is resolved externally via a mandatory resolver
+//  closure, keeping the coordinator independent from app-specific layout.
 //
 
 @preconcurrency import UIKit
 
+/// Coordinator responsible for switching a `LucidBanner`
+/// between its standard and alternate visual variants.
+///
+/// The coordinator does not present UI and does not modify banner payloads.
+/// It operates only on an already-presented banner, identified by a token.
+///
+/// Responsibilities:
+/// - Track a single active banner token.
+/// - Toggle the banner variant (`standard` / `alternate`).
+/// - Move the banner to an externally-resolved target position.
+/// - Re-apply positioning after orientation or layout changes.
+///
+/// Notes:
+/// - The coordinator is intentionally UI-agnostic.
+/// - All layout decisions are resolved outside the library.
+/// - SwiftUI views remain passive and state-driven.
 @MainActor
 public final class LucidBannerVariantCoordinator {
 
-    // MARK: - Singleton
-
+    /// Shared singleton instance.
     public static let shared = LucidBannerVariantCoordinator()
 
     // MARK: - Types
 
-    /// Context passed to the external resolver.
-    /// All coordinates are in window space.
+    /// Context passed to the external variant resolver.
+    ///
+    /// All coordinates are expressed in window space.
     public struct ResolveContext {
         public let token: Int
         public let state: LucidBannerState
@@ -35,43 +53,27 @@ public final class LucidBannerVariantCoordinator {
         public let safeAreaInsets: UIEdgeInsets
     }
 
-    /// Resolver result for the alternate variant.
-    /// - `targetPoint` is mandatory (window coordinates).
-    /// - `horizontalLayout` is optional; when present it overrides the current layout.
-    public struct VariantResolution {
-        public let targetPoint: CGPoint
-        public let horizontalLayout: LucidBanner.HorizontalLayout?
-
-        public init(
-            targetPoint: CGPoint,
-            horizontalLayout: LucidBanner.HorizontalLayout? = nil
-        ) {
-            self.targetPoint = targetPoint
-            self.horizontalLayout = horizontalLayout
-        }
-    }
-
-    /// Legacy resolver that only returns a target point (window coordinates).
+    /// Resolver used to compute the target position
+    /// for the alternate banner variant.
+    ///
+    /// The returned point must be expressed in window coordinates.
     public typealias ResolveVariantPointHandler =
         @MainActor (_ context: ResolveContext) -> CGPoint
 
-    /// Modern resolver that returns the full alternate resolution.
-    public typealias ResolveVariantHandler =
-        @MainActor (_ context: ResolveContext) -> VariantResolution
-
     // MARK: - Stored Properties
 
+    /// Currently tracked banner token.
     private var currentToken: Int?
-    private var resolveHandler: ResolveVariantHandler?
 
-    /// Cached standard layout, captured right before applying an alternate layout override.
-    /// Cleared after restoration.
-    private var standardHorizontalLayout: LucidBanner.HorizontalLayout?
+    /// Resolver for alternate variant positioning.
+    private var resolveHandler: ResolveVariantPointHandler?
 
+    /// Orientation change observer token.
     private var orientationObserver: NSObjectProtocol?
 
     // MARK: - Initialization
 
+    /// Creates the coordinator and installs an orientation-change observer.
     init() {
         orientationObserver = NotificationCenter.default.addObserver(
             forName: UIDevice.orientationDidChangeNotification,
@@ -79,8 +81,9 @@ public final class LucidBannerVariantCoordinator {
             queue: .main
         ) { [weak self] _ in
             guard let self else { return }
+
             Task { @MainActor in
-                // Allow UIKit layout to stabilize before recomputing.
+                // Allow layout to stabilize before recomputing position.
                 try? await Task.sleep(for: .milliseconds(100))
                 self.refreshPosition(animated: true)
             }
@@ -95,41 +98,28 @@ public final class LucidBannerVariantCoordinator {
 
     // MARK: - Registration
 
-    /// Registers with a legacy point-only resolver.
-    /// Internally adapted to the modern resolver.
-    public func register(
-        token: Int?,
-        resolveVariantPoint: @escaping ResolveVariantPointHandler
-    ) {
-        register(token: token) { context in
-            VariantResolution(
-                targetPoint: resolveVariantPoint(context),
-                horizontalLayout: nil
-            )
-        }
-    }
-
-    /// Registers with the modern resolver.
-    /// If `token` is nil, coordinator state is cleared.
-    public func register(
-        token: Int?,
-        resolveVariant: @escaping ResolveVariantHandler
-    ) {
+    /// Registers the active banner token and the variant-position resolver.
+    ///
+    /// If `token` is `nil`, the coordinator state is cleared.
+    public func register(token: Int?, resolveVariantPoint: @escaping ResolveVariantPointHandler) {
         guard let token else {
             clear()
             return
         }
 
         currentToken = token
-        resolveHandler = resolveVariant
-        standardHorizontalLayout = nil
+        resolveHandler = resolveVariantPoint
     }
 
     // MARK: - Public API
 
-    /// Handles a tap coming from the SwiftUI banner content.
+    /// Handles a tap originating from the SwiftUI banner content.
+    ///
+    /// Toggles between standard and alternate variants.
     public func handleTap(_ state: LucidBannerState) {
-        guard let token = currentToken else { return }
+        guard let token = currentToken else {
+            return
+        }
 
         guard LucidBanner.shared.isAlive(token) else {
             clear()
@@ -149,125 +139,67 @@ public final class LucidBannerVariantCoordinator {
     private func clear() {
         currentToken = nil
         resolveHandler = nil
-        standardHorizontalLayout = nil
     }
 
     private func refreshPosition(animated: Bool = true) {
         guard let token = currentToken else { return }
 
-        guard LucidBanner.shared.isAlive(token) else {
+        guard LucidBanner.shared.isAlive(token),
+              let state = LucidBanner.shared.currentState(for: token) else {
             clear()
             return
         }
 
-        guard let state = LucidBanner.shared.currentState(for: token) else { return }
-
-        if state.variant == .alternate {
-            guard let resolution = resolvedVariant(for: token, state: state) else { return }
-
-            // Keep alternate positioning valid on rotation/layout changes.
-            // Horizontal layout override (if any) is also refreshed.
-            if let layout = resolution.horizontalLayout {
-                LucidBanner.shared.update(
-                    payload: .init(horizontalLayout: layout),
-                    for: token
-                )
-                LucidBanner.shared.requestRelayout(animated: false)
-            }
-
+        if state.variant == .alternate,
+           let target = resolvedVariantPoint(for: token, state: state) {
             LucidBanner.shared.move(
-                toX: resolution.targetPoint.x,
-                y: resolution.targetPoint.y,
+                toX: target.x,
+                y: target.y,
                 for: token,
                 animated: animated
             )
         } else {
-            // Restore canonical position (and layout if overridden).
-            restoreStandardLayoutIfNeeded(token: token, clearCache: true)
             LucidBanner.shared.resetPosition(for: token, animated: true)
         }
     }
 
     private func applyAlternateVariant(_ state: LucidBannerState) {
-        guard let token = currentToken else { return }
-
-        // Capture current "standard" layout right before overriding it.
-        let capturedStandardLayout = state.payload.horizontalLayout
-
-        state.variant = .alternate
-
-        // Disable dragging while using the alternate variant.
-        LucidBanner.shared.setDraggingEnabled(false, for: token)
-
-        guard let resolution = resolvedVariant(for: token, state: state) else {
-            // Still remeasure because the SwiftUI view likely changed variant.
-            LucidBanner.shared.requestRelayout(animated: false)
+        guard let token = currentToken else {
             return
         }
 
-        // Apply optional alternate horizontal layout (external decision).
-        if let layout = resolution.horizontalLayout {
-            standardHorizontalLayout = capturedStandardLayout
-            LucidBanner.shared.update(
-                payload: .init(horizontalLayout: layout),
-                for: token
-            )
-        }
-
-        // Re-measure after variant/layout changes.
+        state.variant = .alternate
+        LucidBanner.shared.setDraggingEnabled(false, for: token)
         LucidBanner.shared.requestRelayout(animated: false)
 
-        // Move to externally resolved point.
-        LucidBanner.shared.move(
-            toX: resolution.targetPoint.x,
-            y: resolution.targetPoint.y,
-            for: token,
-            animated: true
-        )
+        if let target = resolvedVariantPoint(for: token, state: state) {
+            LucidBanner.shared.move(
+                toX: target.x,
+                y: target.y,
+                for: token,
+                animated: true
+            )
+        }
     }
 
     private func applyStandardVariant(_ state: LucidBannerState) {
-        guard let token = currentToken else { return }
+        guard let token = currentToken else {
+            return
+        }
 
         state.variant = .standard
-
-        // Restore canonical layout if the alternate variant overrode it.
-        restoreStandardLayoutIfNeeded(token: token, clearCache: true)
 
         if state.payload.draggable {
             LucidBanner.shared.setDraggingEnabled(true, for: token)
         }
 
-        // Re-measure standard layout.
         LucidBanner.shared.requestRelayout(animated: false)
-
-        // Restore canonical position.
         LucidBanner.shared.resetPosition(for: token, animated: true)
     }
 
-    private func restoreStandardLayoutIfNeeded(token: Int, clearCache: Bool) {
-        guard let standard = standardHorizontalLayout else { return }
-        guard let state = LucidBanner.shared.currentState(for: token) else { return }
-
-        if state.payload.horizontalLayout != standard {
-            LucidBanner.shared.update(
-                payload: .init(horizontalLayout: standard),
-                for: token
-            )
-        }
-
-        if clearCache {
-            standardHorizontalLayout = nil
-        }
-    }
-
-    private func resolvedVariant(
-        for token: Int,
-        state: LucidBannerState
-    ) -> VariantResolution? {
-        guard let resolveHandler else { return nil }
-
-        guard let hostView = LucidBanner.shared.currentHostView(for: token),
+    private func resolvedVariantPoint(for token: Int, state: LucidBannerState) -> CGPoint? {
+        guard let resolveHandler,
+              let hostView = LucidBanner.shared.currentHostView(for: token),
               let window = hostView.window else {
             return nil
         }
