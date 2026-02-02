@@ -53,6 +53,7 @@ public final class LucidBannerVariantCoordinator {
     private var currentToken: Int?
     private var resolveHandler: ResolveVariantHandler?
     private var orientationObserver: NSObjectProtocol?
+    private var standardPayloadSnapshot: LucidBannerPayload?
 
     // MARK: - Initialization
 
@@ -116,6 +117,7 @@ public final class LucidBannerVariantCoordinator {
     private func clear() {
         currentToken = nil
         resolveHandler = nil
+        standardPayloadSnapshot = nil
     }
 
     private func refreshPosition(animated: Bool) {
@@ -147,6 +149,10 @@ public final class LucidBannerVariantCoordinator {
 
         state.variant = .alternate
 
+        if standardPayloadSnapshot == nil {
+            standardPayloadSnapshot = state.payload
+        }
+
         // Apply externally resolved payload update (if any)
         if let update = resolution.payloadUpdate {
             LucidBanner.shared.update(payload: update, for: token)
@@ -169,6 +175,14 @@ public final class LucidBannerVariantCoordinator {
         guard let token = currentToken else { return }
 
         state.variant = .standard
+
+        if let snapshot = standardPayloadSnapshot {
+            LucidBanner.shared.update(
+                payload: .init(from: snapshot),
+                for: token
+            )
+            standardPayloadSnapshot = nil
+        }
 
         if state.payload.draggable {
             LucidBanner.shared.setDraggingEnabled(true, for: token)

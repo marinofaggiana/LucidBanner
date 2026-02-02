@@ -319,6 +319,33 @@ public extension LucidBannerPayload.Update {
         var stageChanged = false
     }
 
+    /// Creates an update that fully restores a payload snapshot.
+    /// Used to revert temporary overrides (e.g. variant transitions).
+    init(from payload: LucidBannerPayload) {
+        self.init(
+            title: payload.title,
+            subtitle: payload.subtitle,
+            footnote: payload.footnote,
+            systemImage: payload.systemImage,
+            imageAnimation: payload.imageAnimation,
+            progress: payload.progress,
+            stage: payload.stage,
+
+            backgroundColor: payload.backgroundColor,
+            textColor: payload.textColor,
+            imageColor: payload.imageColor,
+
+            vPosition: payload.vPosition,
+            verticalMargin: payload.verticalMargin,
+            horizontalLayout: payload.horizontalLayout,
+
+            autoDismissAfter: payload.autoDismissAfter,
+            swipeToDismiss: payload.swipeToDismiss,
+            blocksTouches: payload.blocksTouches,
+            draggable: payload.draggable
+        )
+    }
+
     /// Applies this update patch to an existing `LucidBannerPayload`.
     ///
     /// This method performs a pure, deterministic merge:
