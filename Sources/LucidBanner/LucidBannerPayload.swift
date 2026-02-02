@@ -38,7 +38,7 @@ import SwiftUI
 /// it always represents a coherent, self-contained configuration.
 public struct LucidBannerPayload {
 
-    // MARK: - Content
+    // Content
 
     /// Primary title text.
     ///
@@ -78,7 +78,7 @@ public struct LucidBannerPayload {
     /// (e.g. progress flows, state transitions).
     public var stage: LucidBanner.Stage?
 
-    // MARK: - Appearance
+    // Appearance
 
     /// Background color of the banner container.
     public var backgroundColor: Color
@@ -89,7 +89,7 @@ public struct LucidBannerPayload {
     /// Tint color applied to the system image.
     public var imageColor: Color
 
-    // MARK: - Layout
+    // Layout
 
     /// Vertical placement of the banner within its window.
     public var vPosition: LucidBanner.VerticalPosition
@@ -100,7 +100,7 @@ public struct LucidBannerPayload {
     /// Horizontal layout strategy applied to the banner.
     public var horizontalLayout: LucidBanner.HorizontalLayout
 
-    // MARK: - Interaction
+    // Interaction
 
     /// Auto-dismiss delay in seconds.
     ///
@@ -135,7 +135,7 @@ public struct LucidBannerPayload {
         case clear
     }
 
-    // MARK: - Initialization
+    // Initialization
 
     /// Creates a complete banner payload.
     ///

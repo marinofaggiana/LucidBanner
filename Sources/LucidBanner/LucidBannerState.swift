@@ -5,75 +5,49 @@
 //  Licensed under the MIT License.
 //
 //  Overview:
-//  LucidBannerState is the shared, observable state model driving all
-//  SwiftUI rendering for a LucidBanner instance.
+//  Shared observable state driving all SwiftUI rendering
+//  for a LucidBanner instance.
 //
-//  This object represents the *single source of truth* for banner UI.
-//  SwiftUI views are pure functions of this state and never initiate
-//  presentation, dismissal, or side effects on their own.
-//
-//  The state is owned and mutated exclusively by `LucidBanner`
-//  (and its coordinators) and injected into SwiftUI content
-//  for both initial rendering and live updates.
-//
-//  Design principles:
-//  - Observable, but not autonomous.
-//  - Mutable only on the MainActor.
-//  - Safe to subclass for app-specific extensions.
-//  - No presentation logic or UIKit coupling.
+//  This object is the single source of truth for banner UI.
+//  SwiftUI views are pure functions of this state and never
+//  initiate presentation, dismissal, or side effects.
 //
 
 import SwiftUI
 import Combine
 
-/// Shared observable state used by LucidBanner SwiftUI content.
+//// Observable state injected into LucidBanner SwiftUI content.
 ///
-/// `LucidBannerState` is intentionally minimal and declarative.
-/// It does not perform any actions; it only exposes data that
-/// describes *what* the banner should render.
+/// `LucidBannerState` is declarative and passive:
+/// it exposes *what* should be rendered, not *how* or *when*.
 ///
-/// Responsibilities:
-/// - Expose the current banner payload to SwiftUI.
-/// - Expose derived UI flags (e.g. variant state).
-/// - Act as the bridge between the LucidBanner state machine
-///   and passive SwiftUI views.
-///
-/// Ownership:
-/// - Instances are created and owned by `LucidBanner`.
-/// - SwiftUI views must never retain or create their own state instances.
+/// The state is owned and mutated exclusively by `LucidBanner`
+/// (and its internal coordinators).
 @MainActor
 open class LucidBannerState: ObservableObject {
 
     /// Complete banner configuration snapshot.
     ///
-    /// This payload is the canonical representation of banner state.
-    /// Any change to this value triggers a SwiftUI re-render.
-    ///
-    /// Mutations are performed by `LucidBanner` via explicit update APIs.
+    /// Any change triggers a SwiftUI re-render.
+    /// Mutations are performed via `LucidBanner` update APIs.
     @Published public var payload: LucidBannerPayload
 
-    /// Indicates which visual representation of the banner is currently active.
+    /// Active visual variant of the banner.
     ///
-    /// This flag does **not** imply a reduction, collapse, or hierarchy change.
-    /// It simply represents an alternate visual variant of the same banner,
-    /// selected by the banner system.
+    /// This flag represents an alternate visual representation
+    /// of the same banner, not a hierarchy or lifecycle change.
     ///
-    /// The value is managed internally by LucidBanner
-    /// (e.g. via a coordinator) and must be treated as read-only
-    /// by SwiftUI views.
-    ///
-    /// SwiftUI content may *react* to this value
-    /// (e.g. switch between different visual layouts or styles),
-    /// but must not toggle it directly.
+    /// SwiftUI views may react to this value, but must not
+    /// mutate it directly.
     public enum BannerVariant {
         case standard
         case alternate
     }
+
+    /// Current banner variant.
     @Published public var variant: BannerVariant = .standard
 
     /// Creates a new banner state with an initial payload.
-    ///
-    /// - Parameter payload: Initial full configuration snapshot.
     public init(payload: LucidBannerPayload) {
         self.payload = payload
     }

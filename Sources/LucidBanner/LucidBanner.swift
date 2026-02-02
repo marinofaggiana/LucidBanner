@@ -30,10 +30,6 @@
 //  - Updates never apply to stale banners.
 //  - SwiftUI content contains no presentation logic.
 //
-//  What LucidBanner is NOT:
-//  - Not a toast manager tied to a view hierarchy.
-//  - Not a SwiftUI-only solution.
-//  - Not re-entrant or multi-banner concurrent.
 //
 
 import SwiftUI
@@ -421,7 +417,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
         guard let window else { return }
 
-        // MARK: - Interaction Resolution
+        // Interaction Resolution
 
         let wantsBlocksTouches = newPayload.blocksTouches
         let wantsSwipeToDismiss = newPayload.swipeToDismiss
@@ -459,7 +455,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         // Enable or disable pan gesture deterministically
         panGestureRef?.isEnabled = swipeToDismiss || draggable
 
-        // MARK: - Layout State
+        // Layout State
 
         if oldPayload.vPosition != newPayload.vPosition {
             vPosition = newPayload.vPosition
@@ -479,7 +475,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             }
         }
 
-        // MARK: - Timing
+        // Timing
 
         if oldPayload.autoDismissAfter != newPayload.autoDismissAfter {
             autoDismissAfter = newPayload.autoDismissAfter
@@ -491,7 +487,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             }
         }
 
-        // MARK: - Layout Pass
+        // Layout Pass
 
         if mergeResult.needsRelayout {
             if isAnimatingIn || isDismissing {
@@ -505,7 +501,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             }
         }
 
-        // MARK: - Auto-dismiss
+        // Auto-dismiss
 
         if shouldRescheduleAutoDismiss {
             scheduleAutoDismiss()
@@ -856,23 +852,13 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
     // MARK: - Internals: Window Attachment & Layout
 
-    /// Creates and attaches the banner window, installs the SwiftUI host,
-    /// configures layout constraints, gesture recognizers, and runs the
-    /// presentation animation.
+    /// Attaches the banner window and presents the SwiftUI content.
     ///
-    /// This method represents the concrete boundary between the abstract
-    /// banner state machine and UIKit.
+    /// This method bridges the banner state machine with UIKit.
+    /// It creates the UIWindow, installs the hosting controller,
+    /// applies layout constraints, and runs the presentation animation.
     ///
-    /// Responsibilities:
-    /// - Create a dedicated UIWindow bound to the target scene.
-    /// - Install a root container and SwiftUI hosting controller.
-    /// - Apply layout constraints based on current configuration.
-    /// - Install interaction gestures.
-    /// - Perform the presentation animation.
-    /// - Trigger an initial layout measurement.
-    ///
-    /// This method must only be called on the MainActor and assumes all
-    /// per-banner configuration has already been applied via `applyPending(_:)`.
+    /// Must be called on the MainActor.
     private func attachWindowAndPresent() {
         guard let scene = self.scene else { return }
 
@@ -1051,14 +1037,9 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
     // MARK: - Internals: Layout Measurement
 
-    /// Forces a re-measure of the SwiftUI content and applies a stable
-    /// height constraint to the banner.
+    /// Re-measures the SwiftUI content and stabilizes the banner height.
     ///
-    /// This method computes the intrinsic height of the SwiftUI view
-    /// using Auto Layout fitting, ensuring that dynamic content changes
-    /// (e.g. progress appearance) do not break vertical positioning.
-    ///
-    /// - Parameter animated: Whether the height adjustment is animated.
+    /// This prevents vertical jumps when intrinsic content size changes.
     private func remeasure(animated: Bool = false) {
         guard let window,
               let hostView = hostController?.view else { return }
@@ -1177,14 +1158,8 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         return true
     }
 
-    /// Determines whether a gesture recognizer is allowed to begin.
-    ///
-    /// This method enforces:
-    /// - A short interaction lock after presentation animation.
-    /// - Directional constraints for swipe-to-dismiss.
-    /// - Full freedom for drag gestures when enabled.
-    ///
-    /// It ensures gestures start only when they are semantically valid.
+    /// Determines whether a gesture may begin based on
+    /// interaction state, timing, and banner position.
     public func gestureRecognizerShouldBegin(
         _ gestureRecognizer: UIGestureRecognizer
     ) -> Bool {
@@ -1225,13 +1200,8 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         return true
     }
 
-    /// Handles the pan gesture attached to the banner host view.
-    ///
-    /// The same gesture recognizer supports two distinct interaction modes:
-    /// - Drag mode: freely repositions the banner within safe vertical bounds.
-    /// - Swipe-to-dismiss mode: dismisses the banner based on direction and velocity.
-    ///
-    /// The active mode is determined dynamically by configuration flags.
+    /// Handles pan gestures for dragging or swipe-to-dismiss,
+    /// depending on the current interaction configuration.
     @objc private func handlePanGesture(_ g: UIPanGestureRecognizer) {
         guard let view = hostController?.view else { return }
 

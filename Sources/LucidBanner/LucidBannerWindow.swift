@@ -20,66 +20,38 @@ import UIKit
 
 /// Lightweight `UIWindow` subclass dedicated to hosting a LucidBanner.
 ///
-/// This window does not manage presentation logic, animations, or state.
-/// Its responsibilities are strictly limited to:
-/// - Hosting the banner view hierarchy.
-/// - Supporting passthrough hit-testing.
-/// - Notifying layout changes to the banner coordinator.
-///
-/// The class is intentionally minimal to keep UIKit surface area small
-/// and predictable.
+/// This window is intentionally minimal and UI-agnostic.
+/// It only:
+/// - Hosts the banner view hierarchy
+/// - Supports passthrough hit-testing
+/// - Notifies layout changes to the banner system
 internal final class LucidBannerWindow: UIWindow {
 
-    /// Enables or disables passthrough hit-testing.
+    /// Enables passthrough hit-testing.
     ///
-    /// When `true`, the window allows touches to pass through to the
-    /// underlying application except within the `hitTargetView`.
-    /// When `false`, the window behaves like a normal UIWindow and
-    /// intercepts all touches.
+    /// When enabled, touches are forwarded to the underlying application
+    /// except within `hitTargetView`.
     var isPassthrough: Bool = true
 
     /// View that remains interactive while passthrough mode is enabled.
     ///
-    /// Typically this is the banner’s root host view.
-    /// Touches outside this view are forwarded to the app below.
+    /// Typically this is the banner’s host view.
     weak var hitTargetView: UIView?
 
-    /// Callback invoked whenever the window’s layout changes.
+    /// Called whenever the window layout changes.
     ///
-    /// This includes events such as:
-    /// - Device rotation
-    /// - Safe-area inset changes
-    /// - Bounds updates
-    ///
-    /// LucidBanner uses this hook to trigger safe, deferred layout
-    /// recalculation without relying on view controller callbacks.
+    /// Used by LucidBanner to react to bounds or safe-area updates.
     var onLayoutChange: (() -> Void)?
 
-    /// Called by UIKit when the window lays out its subviews.
-    ///
-    /// The implementation forwards the event via `onLayoutChange`
-    /// to allow the banner system to react to layout-driven changes.
     override func layoutSubviews() {
         super.layoutSubviews()
         onLayoutChange?()
     }
 
-    /// Custom hit-testing implementation supporting passthrough behavior.
+    /// Custom hit-testing supporting passthrough behavior.
     ///
-    /// Behavior:
-    /// - If `isPassthrough` is `false`, hit-testing behaves normally.
-    /// - If `isPassthrough` is `true`, only touches within `hitTargetView`
-    ///   are handled by this window; all other touches are ignored and
-    ///   fall through to the underlying application.
-    ///
-    /// This mechanism allows the banner to float above the UI without
-    /// blocking interaction unless explicitly configured to do so.
-    ///
-    /// - Parameters:
-    ///   - point: The touch location in window coordinates.
-    ///   - event: The event associated with the touch.
-    /// - Returns: The view that should receive the touch, or `nil`
-    ///            to allow passthrough to lower windows.
+    /// When passthrough is enabled, only touches inside `hitTargetView`
+    /// are handled by this window; all others fall through.
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
         guard isPassthrough else {
             return super.hitTest(point, with: event)
