@@ -32,11 +32,11 @@ public final class LucidBannerVariantCoordinator {
     /// - `targetPoint` is mandatory and expressed in window coordinates.
     /// - `payloadUpdate` is optional and applied when entering the alternate variant.
     public struct VariantResolution {
-        public let targetPoint: CGPoint
+        public let targetPoint: CGPoint?
         public let payloadUpdate: LucidBannerPayload.Update?
 
         public init(
-            targetPoint: CGPoint,
+            targetPoint: CGPoint? = nil,
             payloadUpdate: LucidBannerPayload.Update? = nil
         ) {
             self.targetPoint = targetPoint
@@ -130,11 +130,14 @@ public final class LucidBannerVariantCoordinator {
         guard let state = LucidBanner.shared.currentState(for: token) else { return }
 
         if state.variant == .alternate {
-            guard let resolution = resolvedVariant(for: token, state: state) else { return }
+            guard
+                let resolution = resolvedVariant(for: token, state: state),
+                let point = resolution.targetPoint
+            else { return }
 
             LucidBanner.shared.move(
-                toX: resolution.targetPoint.x,
-                y: resolution.targetPoint.y,
+                toX: point.x,
+                y: point.y,
                 for: token,
                 animated: animated
             )
@@ -144,31 +147,38 @@ public final class LucidBannerVariantCoordinator {
     }
 
     private func applyAlternateVariant(_ state: LucidBannerState) {
-        guard let token = currentToken else { return }
-        guard let resolution = resolvedVariant(for: token, state: state) else { return }
+        guard let token = currentToken,
+              let resolution = resolvedVariant(for: token, state: state)
+        else {
+            return
+        }
 
         state.variant = .alternate
 
+        // Snapshot standard payload once
         if standardPayloadSnapshot == nil {
             standardPayloadSnapshot = state.payload
         }
 
-        // Apply externally resolved payload update (if any)
+        // Apply externally resolved payload update
         if let update = resolution.payloadUpdate {
             LucidBanner.shared.update(payload: update, for: token)
         }
 
-        // Disable dragging while minimized
+        // Disable dragging while in alternate variant
         LucidBanner.shared.setDraggingEnabled(false, for: token)
 
         LucidBanner.shared.requestRelayout(animated: false)
 
-        LucidBanner.shared.move(
-            toX: resolution.targetPoint.x,
-            y: resolution.targetPoint.y,
-            for: token,
-            animated: true
-        )
+        // Apply explicit movement only if requested
+        if let point = resolution.targetPoint {
+            LucidBanner.shared.move(
+                toX: point.x,
+                y: point.y,
+                for: token,
+                animated: true
+            )
+        }
     }
 
     private func applyStandardVariant(_ state: LucidBannerState) {
@@ -176,6 +186,7 @@ public final class LucidBannerVariantCoordinator {
 
         state.variant = .standard
 
+        // Restore original payload if it was overridden
         if let snapshot = standardPayloadSnapshot {
             LucidBanner.shared.update(
                 payload: .init(from: snapshot),
