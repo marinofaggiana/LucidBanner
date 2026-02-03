@@ -100,6 +100,14 @@ public struct LucidBannerPayload {
     /// Horizontal layout strategy applied to the banner.
     public var horizontalLayout: LucidBanner.HorizontalLayout
 
+    /// Whether the banner layout respects the window safe area.
+    ///
+    /// When `true`, vertical and horizontal constraints are applied
+    /// relative to the safe area layout guide.
+    /// When `false`, constraints are applied relative to the full window,
+    /// allowing the banner to extend under system UI (e.g. tab bar, home indicator).
+    public var respectsSafeArea: Bool
+
     // Interaction
 
     /// Auto-dismiss delay in seconds.
@@ -164,6 +172,7 @@ public struct LucidBannerPayload {
         vPosition: LucidBanner.VerticalPosition = .center,
         verticalMargin: CGFloat = 0,
         horizontalLayout: LucidBanner.HorizontalLayout = .stretch(margins: 0),
+        respectsSafeArea: Bool = true,
 
         autoDismissAfter: TimeInterval = 0,
         swipeToDismiss: Bool = false,
@@ -188,6 +197,7 @@ public struct LucidBannerPayload {
         self.vPosition = vPosition
         self.verticalMargin = verticalMargin
         self.horizontalLayout = horizontalLayout
+        self.respectsSafeArea = respectsSafeArea
 
         self.autoDismissAfter = autoDismissAfter
         self.swipeToDismiss = swipeToDismiss
@@ -237,6 +247,7 @@ public extension LucidBannerPayload {
         public var vPosition: LucidBanner.VerticalPosition?
         public var verticalMargin: CGFloat?
         public var horizontalLayout: LucidBanner.HorizontalLayout?
+        public var respectsSafeArea: Bool?
 
         // Timing
 
@@ -268,6 +279,7 @@ public extension LucidBannerPayload {
             vPosition: LucidBanner.VerticalPosition? = nil,
             verticalMargin: CGFloat? = nil,
             horizontalLayout: LucidBanner.HorizontalLayout? = nil,
+            respectsSafeArea: Bool? = nil,
 
             autoDismissAfter: TimeInterval? = nil,
             swipeToDismiss: Bool? = nil,
@@ -296,7 +308,8 @@ public extension LucidBannerPayload {
             self.vPosition = vPosition
             self.verticalMargin = verticalMargin
             self.horizontalLayout = horizontalLayout
-            
+            self.respectsSafeArea = respectsSafeArea
+
             self.autoDismissAfter = autoDismissAfter
             self.swipeToDismiss = swipeToDismiss
             self.blocksTouches = blocksTouches
@@ -338,6 +351,7 @@ public extension LucidBannerPayload.Update {
             vPosition: payload.vPosition,
             verticalMargin: payload.verticalMargin,
             horizontalLayout: payload.horizontalLayout,
+            respectsSafeArea: payload.respectsSafeArea,
 
             autoDismissAfter: payload.autoDismissAfter,
             swipeToDismiss: payload.swipeToDismiss,
@@ -462,6 +476,12 @@ public extension LucidBannerPayload.Update {
 
         if let horizontalLayout, payload.horizontalLayout != horizontalLayout {
             payload.horizontalLayout = horizontalLayout
+            result.needsRelayout = true
+        }
+
+        if let respectsSafeArea,
+           payload.respectsSafeArea != respectsSafeArea {
+            payload.respectsSafeArea = respectsSafeArea
             result.needsRelayout = true
         }
 

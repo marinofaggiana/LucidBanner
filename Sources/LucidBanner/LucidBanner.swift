@@ -54,13 +54,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// - deterministic sequencing
     public static let shared = LucidBanner()
 
-    /// Controls whether banner layout respects the window safe area.
-    ///
-    /// When enabled, margins and vertical positioning are constrained
-    /// inside the safe area. When disabled, the banner may extend
-    /// under system UI (status bar, home indicator).
-    public static var useSafeArea: Bool = true
-
     /// Policy describing how a new banner request is handled when
     /// another banner is already visible or transitioning.
     public enum ShowPolicy {
@@ -225,6 +218,9 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
     /// Horizontal layout intent applied to the banner.
     private var horizontalLayout: HorizontalLayout = .stretch(margins: 12)
+
+    /// Whether this banner respects the window safe area.
+    private var respectsSafeArea: Bool = true
 
     /// Vertical margin applied relative to the chosen vertical position.
     private var verticalMargin: CGFloat = 0
@@ -475,6 +471,25 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             }
         }
 
+        if let newValue = update.respectsSafeArea,
+           newValue != respectsSafeArea {
+
+            respectsSafeArea = newValue
+
+            if let hostView = hostController?.view,
+               let root = rootView {
+
+                applyVerticalPositionConstraints(hostView: hostView, root: root)
+                applyHorizontalLayoutConstraints(hostView: hostView, root: root)
+
+                if isAnimatingIn || isDismissing {
+                    pendingRelayout = true
+                } else {
+                    remeasure(animated: true)
+                }
+            }
+        }
+
         // Timing
 
         if oldPayload.autoDismissAfter != newPayload.autoDismissAfter {
@@ -633,165 +648,180 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
     // MARK: - Public API: Dismissal
 
-        /// Dismisses the active banner and starts the next queued banner, if any.
-        ///
-        /// If a dismissal is already in progress, the completion is queued
-        /// and executed when the current dismissal finishes.
-        public func dismiss(completion: (() -> Void)? = nil) {
+    /// Dismisses the active banner and starts the next queued banner, if any.
+    ///
+    /// If a dismissal is already in progress, the completion is queued
+    /// and executed when the current dismissal finishes.
+    public func dismiss(completion: (() -> Void)? = nil) {
 
-            if let completion {
-                pendingDismissCompletions.append(completion)
-            }
+        if let completion {
+            pendingDismissCompletions.append(completion)
+        }
 
-            dismissTimer?.cancel()
-            dismissTimer = nil
+        dismissTimer?.cancel()
+        dismissTimer = nil
 
-            guard let window, let hostView = hostController?.view else {
-                hostController = nil
-                self.window?.isHidden = true
-                self.window = nil
-                self.rootView = nil
-                heightConstraint = nil
-                isPresenting = false
-                isDismissing = false
-
-                let completions = pendingDismissCompletions
-                pendingDismissCompletions.removeAll()
-                completions.forEach { $0() }
-                return
-            }
-
-            if isDismissing { return }
-
+        guard let window, let hostView = hostController?.view else {
+            hostController = nil
+            self.window?.isHidden = true
+            self.window = nil
+            self.rootView = nil
+            heightConstraint = nil
             isPresenting = false
-            isDismissing = true
+            isDismissing = false
 
-            hostView.isUserInteractionEnabled = false
-            panGestureRef?.isEnabled = false
-
-            let offsetY: CGFloat = {
-                switch presentedVPosition {
-                case .top:    return -window.bounds.height
-                case .bottom: return  window.bounds.height
-                case .center: return 0
-                }
-            }()
-
-            UIView.animate(
-                withDuration: 0.35,
-                delay: 0,
-                options: [.curveEaseIn, .beginFromCurrentState]
-            ) {
-                hostView.alpha = 0
-                hostView.transform = (self.presentedVPosition == .center)
-                    ? CGAffineTransform(scaleX: 0.9, y: 0.9)
-                    : CGAffineTransform(translationX: 0, y: offsetY)
-                hostView.layer.shadowOpacity = 0
-                window.layoutIfNeeded()
-            } completion: { _ in
-                self.horizontalConstraints.forEach { $0.isActive = false }
-                self.horizontalConstraints.removeAll()
-
-                if let constraint = self.heightConstraint {
-                    constraint.isActive = false
-                    self.heightConstraint = nil
-                }
-
-                self.hostController = nil
-                window.isHidden = true
-                self.window = nil
-
-                self.isDismissing = false
-                self.panGestureRef = nil
-                self.scrimView = nil
-
-                self.blocksTouches = false
-                self.swipeToDismiss = false
-                self.draggable = false
-
-                self.dequeueAndStartIfNeeded()
-
-                let completions = self.pendingDismissCompletions
-                self.pendingDismissCompletions.removeAll()
-                completions.forEach { $0() }
-            }
+            let completions = pendingDismissCompletions
+            pendingDismissCompletions.removeAll()
+            completions.forEach { $0() }
+            return
         }
 
-        /// Async variant of `dismiss()`.
-        public func dismissAsync() async {
-            await withCheckedContinuation { continuation in
-                dismiss { continuation.resume() }
+        if isDismissing { return }
+
+        isPresenting = false
+        isDismissing = true
+
+        hostView.isUserInteractionEnabled = false
+        panGestureRef?.isEnabled = false
+
+        let offsetY: CGFloat = {
+            switch presentedVPosition {
+            case .top:    return -window.bounds.height
+            case .bottom: return  window.bounds.height
+            case .center: return 0
             }
+        }()
+
+        UIView.animate(
+            withDuration: 0.35,
+            delay: 0,
+            options: [.curveEaseIn, .beginFromCurrentState]
+        ) {
+            hostView.alpha = 0
+            hostView.transform = (self.presentedVPosition == .center)
+                ? CGAffineTransform(scaleX: 0.9, y: 0.9)
+                : CGAffineTransform(translationX: 0, y: offsetY)
+            hostView.layer.shadowOpacity = 0
+            window.layoutIfNeeded()
+        } completion: { _ in
+            self.horizontalConstraints.forEach { $0.isActive = false }
+            self.horizontalConstraints.removeAll()
+
+            if let constraint = self.heightConstraint {
+                constraint.isActive = false
+                self.heightConstraint = nil
+            }
+
+            self.hostController = nil
+            window.isHidden = true
+            self.window = nil
+
+            self.isDismissing = false
+            self.panGestureRef = nil
+            self.scrimView = nil
+
+            self.blocksTouches = false
+            self.swipeToDismiss = false
+            self.draggable = false
+
+            self.dequeueAndStartIfNeeded()
+
+            let completions = self.pendingDismissCompletions
+            self.pendingDismissCompletions.removeAll()
+            completions.forEach { $0() }
+        }
+    }
+
+    /// Async variant of `dismiss()`.
+    public func dismissAsync() async {
+        await withCheckedContinuation { continuation in
+            dismiss { continuation.resume() }
+        }
+    }
+
+    /// Dismisses the active banner after a delay.
+    ///
+    /// If another banner becomes active before the delay expires,
+    /// the dismissal is ignored.
+    public func dismiss(after seconds: TimeInterval, completion: (() -> Void)? = nil) {
+        dismissTimer?.cancel()
+
+        guard seconds > 0 else {
+            dismiss(completion: completion)
+            return
         }
 
-        /// Dismisses the active banner after a delay.
-        ///
-        /// If another banner becomes active before the delay expires,
-        /// the dismissal is ignored.
-        public func dismiss(after seconds: TimeInterval, completion: (() -> Void)? = nil) {
-            dismissTimer?.cancel()
+        let tokenAtSchedule = activeToken
 
-            guard seconds > 0 else {
-                dismiss(completion: completion)
-                return
-            }
-
-            let tokenAtSchedule = activeToken
-
-            dismissTimer = Task {
-                try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
-                await MainActor.run {
-                    guard self.activeToken == tokenAtSchedule else { return }
-                    self.dismiss(completion: completion)
-                }
+        dismissTimer = Task {
+            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            await MainActor.run {
+                guard self.activeToken == tokenAtSchedule else { return }
+                self.dismiss(completion: completion)
             }
         }
+    }
 
-        /// Async variant of delayed dismissal.
-        public func dismissAsync(after seconds: TimeInterval) async {
-            await withCheckedContinuation { continuation in
-                dismiss(after: seconds) { continuation.resume() }
-            }
+    /// Async variant of delayed dismissal.
+    public func dismissAsync(after seconds: TimeInterval) async {
+        await withCheckedContinuation { continuation in
+            dismiss(after: seconds) { continuation.resume() }
+        }
+    }
+
+    /// Immediately dismisses all banners and clears the queue.
+    ///
+    /// This is a hard reset of the banner system.
+    public func dismissAll(animated: Bool = true, completion: (() -> Void)? = nil) {
+        guard let window else {
+            activeToken = nil
+            completion?()
+            return
         }
 
-        /// Immediately dismisses all banners and clears the queue.
-        ///
-        /// This is a hard reset of the banner system.
-        public func dismissAll(animated: Bool = true, completion: (() -> Void)? = nil) {
-            guard let window else {
-                activeToken = nil
-                completion?()
-                return
-            }
+        let hide = { window.alpha = 0 }
 
-            let hide = { window.alpha = 0 }
-
-            let finalize = {
-                self.activeToken = nil
-                window.isHidden = true
-                window.rootViewController = nil
-                self.horizontalConstraints.forEach { $0.isActive = false }
-                self.horizontalConstraints.removeAll()
-                if let constraint = self.heightConstraint {
-                    constraint.isActive = false
-                    self.heightConstraint = nil
-                }
-                self.window = nil
-                self.isPresenting = false
-                self.isDismissing = false
-                self.blocksTouches = false
-                self.swipeToDismiss = false
-                self.draggable = false
-                completion?()
+        let finalize = {
+            self.activeToken = nil
+            window.isHidden = true
+            window.rootViewController = nil
+            self.horizontalConstraints.forEach { $0.isActive = false }
+            self.horizontalConstraints.removeAll()
+            if let constraint = self.heightConstraint {
+                constraint.isActive = false
+                self.heightConstraint = nil
             }
-
-            if animated {
-                UIView.animate(withDuration: 0.20, animations: hide) { _ in finalize() }
-            } else {
-                hide()
-                finalize()
-            }
+            self.window = nil
+            self.isPresenting = false
+            self.isDismissing = false
+            self.blocksTouches = false
+            self.swipeToDismiss = false
+            self.draggable = false
+            completion?()
         }
+
+        if animated {
+            UIView.animate(withDuration: 0.20, animations: hide) { _ in finalize() }
+        } else {
+            hide()
+            finalize()
+        }
+    }
+
+    public func setRespectsSafeArea(_ value: Bool, for token: Int? = nil, animated: Bool = true) {
+        guard window != nil,
+              token == nil || token == activeToken,
+              value != respectsSafeArea else { return }
+
+        respectsSafeArea = value
+
+        if let hostView = hostController?.view,
+           let root = rootView {
+            applyVerticalPositionConstraints(hostView: hostView, root: root)
+            applyHorizontalLayoutConstraints(hostView: hostView, root: root)
+            remeasure(animated: animated)
+        }
+    }
 
     // MARK: - Internals: Presentation Pipeline
 
@@ -827,6 +857,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         vPosition = p.payload.vPosition
         verticalMargin = p.payload.verticalMargin
         horizontalLayout = p.payload.horizontalLayout
+        respectsSafeArea = p.payload.respectsSafeArea
 
         autoDismissAfter = p.payload.autoDismissAfter
         blocksTouches = p.payload.blocksTouches
@@ -911,7 +942,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         // Layout Constraints
 
         let guide = root.safeAreaLayoutGuide
-        let useSafeArea = LucidBanner.useSafeArea
+        let useSafeArea = respectsSafeArea
 
         switch vPosition {
         case .top:
@@ -999,7 +1030,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
     private func applyHorizontalLayoutConstraints(hostView: UIView, root: UIView) {
         let guide = root.safeAreaLayoutGuide
-        let useSafeArea = LucidBanner.useSafeArea
+        let useSafeArea = respectsSafeArea
 
         let leading = useSafeArea ? guide.leadingAnchor : root.leadingAnchor
         let trailing = useSafeArea ? guide.trailingAnchor : root.trailingAnchor
@@ -1033,6 +1064,39 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
         NSLayoutConstraint.activate(horizontalConstraints)
         root.layoutIfNeeded()
+    }
+
+    private func applyVerticalPositionConstraints(hostView: UIView, root: UIView) {
+        let guide = root.safeAreaLayoutGuide
+        let useSafeArea = respectsSafeArea
+
+        NSLayoutConstraint.deactivate(
+            root.constraints.filter {
+                $0.firstItem as? UIView === hostView &&
+                ($0.firstAttribute == .top ||
+                 $0.firstAttribute == .bottom ||
+                 $0.firstAttribute == .centerY)
+            }
+        )
+
+        switch vPosition {
+        case .top:
+            hostView.topAnchor.constraint(
+                equalTo: useSafeArea ? guide.topAnchor : root.topAnchor,
+                constant: verticalMargin
+            ).isActive = true
+
+        case .center:
+            hostView.centerYAnchor.constraint(
+                equalTo: useSafeArea ? guide.centerYAnchor : root.centerYAnchor
+            ).isActive = true
+
+        case .bottom:
+            hostView.bottomAnchor.constraint(
+                equalTo: useSafeArea ? guide.bottomAnchor : root.bottomAnchor,
+                constant: -verticalMargin
+            ).isActive = true
+        }
     }
 
     // MARK: - Internals: Layout Measurement
