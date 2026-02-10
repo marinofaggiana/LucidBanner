@@ -301,10 +301,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     @objc private func appDidEnterBackground() {
         Task { @MainActor in
             dismissAll(animated: false)
-
-            window?.isHidden = true
-            window = nil
-            activeToken = nil
         }
     }
 
@@ -348,7 +344,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             // Hard reset: drop any queued requests and dismiss any visible banner without animation.
             queue.removeAll()
             dismissAll(animated: false)
-            activeToken = nil
             return newToken
         }
 
