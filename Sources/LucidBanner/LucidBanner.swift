@@ -334,14 +334,28 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         onTap: ((_ token: Int?, _ stage: LucidBanner.Stage?) -> Void)? = nil,
         @ViewBuilder content: @escaping (LucidBannerState) -> Content) -> Int {
 
+        // Generate a new token up front for deterministic tracking.
+        generation &+= 1
+        let newToken = generation
+
+        // If the app/scene is not active/visible, clear everything and do not present.
+        let isSceneActive: Bool = {
+            if let scene { return scene.activationState == .foregroundActive }
+            return UIApplication.shared.applicationState == .active
+        }()
+
+        if !isSceneActive {
+            // Hard reset: drop any queued requests and dismiss any visible banner without animation.
+            queue.removeAll()
+            dismissAll(animated: false)
+            activeToken = nil
+            return newToken
+        }
+
         // Bind SwiftUI content to the shared state.
         let viewFactory: (LucidBannerState) -> AnyView = {
             AnyView(content($0))
         }
-
-        // Generate a new token.
-        generation &+= 1
-        let newToken = generation
 
         let pending = PendingShow(
             scene: scene,
@@ -1430,3 +1444,4 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         onTap?(activeToken, state.payload.stage)
     }
 }
+
