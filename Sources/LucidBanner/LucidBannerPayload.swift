@@ -91,6 +91,9 @@ public struct LucidBannerPayload {
 
     // Layout
 
+    /// PresentationStyle controls only the transition animation.
+    public var presentationStyle: LucidBanner.PresentationStyle = .automatic
+
     /// Vertical placement of the banner within its window.
     public var vPosition: LucidBanner.VerticalPosition
 
@@ -169,6 +172,7 @@ public struct LucidBannerPayload {
         textColor: Color = .primary,
         imageColor: Color = .primary,
 
+        presentationStyle: LucidBanner.PresentationStyle = .automatic,
         vPosition: LucidBanner.VerticalPosition = .center,
         verticalMargin: CGFloat = 0,
         horizontalLayout: LucidBanner.HorizontalLayout = .stretch(margins: 0),
@@ -194,6 +198,7 @@ public struct LucidBannerPayload {
         self.textColor = textColor
         self.imageColor = imageColor
 
+        self.presentationStyle = presentationStyle
         self.vPosition = vPosition
         self.verticalMargin = verticalMargin
         self.horizontalLayout = horizontalLayout
@@ -244,6 +249,7 @@ public extension LucidBannerPayload {
 
         // Layout
 
+        public var presentationStyle: LucidBanner.PresentationStyle?
         public var vPosition: LucidBanner.VerticalPosition?
         public var verticalMargin: CGFloat?
         public var horizontalLayout: LucidBanner.HorizontalLayout?
@@ -276,6 +282,7 @@ public extension LucidBannerPayload {
             textColor: Color? = nil,
             imageColor: Color? = nil,
 
+            presentationStyle: LucidBanner.PresentationStyle? = nil,
             vPosition: LucidBanner.VerticalPosition? = nil,
             verticalMargin: CGFloat? = nil,
             horizontalLayout: LucidBanner.HorizontalLayout? = nil,
@@ -305,6 +312,7 @@ public extension LucidBannerPayload {
             self.textColor = textColor
             self.imageColor = imageColor
 
+            self.presentationStyle = presentationStyle
             self.vPosition = vPosition
             self.verticalMargin = verticalMargin
             self.horizontalLayout = horizontalLayout
@@ -463,6 +471,11 @@ public extension LucidBannerPayload.Update {
         if let blocksTouches { payload.blocksTouches = blocksTouches }
 
         // Layout
+
+        if let presentationStyle,
+           payload.presentationStyle != presentationStyle {
+            payload.presentationStyle = presentationStyle
+        }
 
         if let vPosition, payload.vPosition != vPosition {
             payload.vPosition = vPosition

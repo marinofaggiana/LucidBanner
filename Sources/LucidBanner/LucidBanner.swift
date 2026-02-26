@@ -138,6 +138,24 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         case trailing(width: CGFloat, offset: CGFloat = 0)
     }
 
+    /// Defines how the banner animates when appearing and disappearing.
+    ///
+    /// PresentationStyle controls only the transition animation.
+    /// It does not affect layout, interaction, or positioning.
+    public enum PresentationStyle: Equatable {
+        /// Automatically selects a style based on vertical position.
+        case automatic
+
+        /// Slides vertically from outside the window bounds.
+        case slide
+
+        /// Scales with a subtle zoom-in effect.
+        case scale
+
+        /// Fades without positional or scale transformation.
+        case fade
+    }
+
     /// Internal representation of a queued banner request.
     ///
     /// PendingShow encapsulates configuration and content
@@ -195,6 +213,8 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
     /// Completion handlers waiting for the current banner to fully dismiss.
     private var pendingDismissCompletions: [() -> Void] = []
+
+    private var presentationStyle: PresentationStyle = .automatic
 
     // MARK: - Layout State
 
@@ -534,126 +554,126 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
     // MARK: - Public API: Positioning & Inspection
 
-        /// Translates the banner so that its visual center matches the given
-        /// point in window coordinates.
-        ///
-        /// The movement is applied as a delta transform on top of the current
-        /// transform, preserving any active drag offset.
-        ///
-        /// - Parameters:
-        ///   - x: Target X coordinate in window space.
-        ///   - y: Target Y coordinate in window space.
-        ///   - token: Optional token restricting the operation.
-        ///   - animated: Whether the movement is animated.
-        public func move(toX x: CGFloat, y: CGFloat, for token: Int? = nil, animated: Bool = true) {
-            guard window != nil, token == nil || token == activeToken else { return }
-            guard let window, let hostView = hostController?.view else { return }
+    /// Translates the banner so that its visual center matches the given
+    /// point in window coordinates.
+    ///
+    /// The movement is applied as a delta transform on top of the current
+    /// transform, preserving any active drag offset.
+    ///
+    /// - Parameters:
+    ///   - x: Target X coordinate in window space.
+    ///   - y: Target Y coordinate in window space.
+    ///   - token: Optional token restricting the operation.
+    ///   - animated: Whether the movement is animated.
+    public func move(toX x: CGFloat, y: CGFloat, for token: Int? = nil, animated: Bool = true) {
+        guard window != nil, token == nil || token == activeToken else { return }
+        guard let window, let hostView = hostController?.view else { return }
 
-            let frameInWindow = hostView.convert(hostView.bounds, to: window)
-            let currentCenter = CGPoint(x: frameInWindow.midX, y: frameInWindow.midY)
+        let frameInWindow = hostView.convert(hostView.bounds, to: window)
+        let currentCenter = CGPoint(x: frameInWindow.midX, y: frameInWindow.midY)
 
-            let dx = x - currentCenter.x
-            let dy = y - currentCenter.y
+        let dx = x - currentCenter.x
+        let dy = y - currentCenter.y
 
-            let targetTransform = hostView.transform.translatedBy(x: dx, y: dy)
+        let targetTransform = hostView.transform.translatedBy(x: dx, y: dy)
 
-            let animations = {
-                hostView.transform = targetTransform
-            }
-
-            if animated {
-                UIView.animate(
-                    withDuration: 0.25,
-                    delay: 0,
-                    usingSpringWithDamping: 0.85,
-                    initialSpringVelocity: 0.5,
-                    options: [.beginFromCurrentState, .curveEaseInOut],
-                    animations: animations
-                )
-            } else {
-                animations()
-            }
+        let animations = {
+            hostView.transform = targetTransform
         }
 
-        /// Resets any custom transform applied to the banner, restoring the
-        /// position defined exclusively by Auto Layout.
-        ///
-        /// - Parameters:
-        ///   - token: Optional token restricting the operation.
-        ///   - animated: Whether the reset is animated.
-        public func resetPosition(for token: Int? = nil, animated: Bool = true) {
-            guard window != nil, token == nil || token == activeToken else { return }
-            guard let hostView = hostController?.view else { return }
+        if animated {
+            UIView.animate(
+                withDuration: 0.25,
+                delay: 0,
+                usingSpringWithDamping: 0.85,
+                initialSpringVelocity: 0.5,
+                options: [.beginFromCurrentState, .curveEaseInOut],
+                animations: animations
+            )
+        } else {
+            animations()
+        }
+    }
 
-            let animations = {
-                hostView.transform = .identity
-            }
+    /// Resets any custom transform applied to the banner, restoring the
+    /// position defined exclusively by Auto Layout.
+    ///
+    /// - Parameters:
+    ///   - token: Optional token restricting the operation.
+    ///   - animated: Whether the reset is animated.
+    public func resetPosition(for token: Int? = nil, animated: Bool = true) {
+        guard window != nil, token == nil || token == activeToken else { return }
+        guard let hostView = hostController?.view else { return }
 
-            if animated {
-                UIView.animate(
-                    withDuration: 0.25,
-                    delay: 0,
-                    usingSpringWithDamping: 0.85,
-                    initialSpringVelocity: 0.5,
-                    options: [.beginFromCurrentState, .curveEaseInOut],
-                    animations: animations
-                )
-            } else {
-                animations()
-            }
+        let animations = {
+            hostView.transform = .identity
         }
 
-        /// Returns the current banner frame in window coordinates,
-        /// including any active transform.
-        ///
-        /// - Parameter token: Optional token validation.
-        /// - Returns: The banner frame, or `nil` if not visible.
-        public func currentFrameInWindow(for token: Int? = nil) -> CGRect? {
-            guard window != nil, token == nil || token == activeToken else { return nil }
-            guard let window, let hostView = hostController?.view else { return nil }
-            return hostView.convert(hostView.bounds, to: window)
+        if animated {
+            UIView.animate(
+                withDuration: 0.25,
+                delay: 0,
+                usingSpringWithDamping: 0.85,
+                initialSpringVelocity: 0.5,
+                options: [.beginFromCurrentState, .curveEaseInOut],
+                animations: animations
+            )
+        } else {
+            animations()
         }
+    }
 
-        /// Returns the underlying UIKit host view of the active banner.
-        ///
-        /// Intended for advanced integrations requiring direct access
-        /// to transforms or layer properties.
-        public func currentHostView(for token: Int? = nil) -> UIView? {
-            guard token == nil || token == activeToken else { return nil }
-            return hostController?.view
-        }
+    /// Returns the current banner frame in window coordinates,
+    /// including any active transform.
+    ///
+    /// - Parameter token: Optional token validation.
+    /// - Returns: The banner frame, or `nil` if not visible.
+    public func currentFrameInWindow(for token: Int? = nil) -> CGRect? {
+        guard window != nil, token == nil || token == activeToken else { return nil }
+        guard let window, let hostView = hostController?.view else { return nil }
+        return hostView.convert(hostView.bounds, to: window)
+    }
 
-        /// Enables or disables drag-related gestures for the active banner.
-        ///
-        /// - Parameters:
-        ///   - isEnabled: Whether dragging is allowed.
-        ///   - token: Optional token validation.
-        public func setDraggingEnabled(_ isEnabled: Bool, for token: Int? = nil) {
-            guard window != nil, token == nil || token == activeToken else { return }
-            panGestureRef?.isEnabled = isEnabled
-        }
+    /// Returns the underlying UIKit host view of the active banner.
+    ///
+    /// Intended for advanced integrations requiring direct access
+    /// to transforms or layer properties.
+    public func currentHostView(for token: Int? = nil) -> UIView? {
+        guard token == nil || token == activeToken else { return nil }
+        return hostController?.view
+    }
 
-        /// Requests a full re-measure of the banner content.
-        ///
-        /// This is useful after external SwiftUI changes that affect
-        /// intrinsic content size.
-        public func requestRelayout(animated: Bool) {
-            remeasure(animated: animated)
-        }
+    /// Enables or disables drag-related gestures for the active banner.
+    ///
+    /// - Parameters:
+    ///   - isEnabled: Whether dragging is allowed.
+    ///   - token: Optional token validation.
+    public func setDraggingEnabled(_ isEnabled: Bool, for token: Int? = nil) {
+        guard window != nil, token == nil || token == activeToken else { return }
+        panGestureRef?.isEnabled = isEnabled
+    }
 
-        /// Returns whether the provided token identifies the currently
-        /// visible banner.
-        public func isAlive(_ token: Int?) -> Bool {
-            token == activeToken && window != nil
-        }
+    /// Requests a full re-measure of the banner content.
+    ///
+    /// This is useful after external SwiftUI changes that affect
+    /// intrinsic content size.
+    public func requestRelayout(animated: Bool) {
+        remeasure(animated: animated)
+    }
 
-        /// Returns the shared banner state for the active token.
-        ///
-        /// This method never exposes state for stale or queued banners.
-        public func currentState(for token: Int) -> LucidBannerState? {
-            guard activeToken == token else { return nil }
-            return state
-        }
+    /// Returns whether the provided token identifies the currently
+    /// visible banner.
+    public func isAlive(_ token: Int?) -> Bool {
+        token == activeToken && window != nil
+    }
+
+    /// Returns the shared banner state for the active token.
+    ///
+    /// This method never exposes state for stale or queued banners.
+    public func currentState(for token: Int) -> LucidBannerState? {
+        guard activeToken == token else { return nil }
+        return state
+    }
 
     // MARK: - Public API: Dismissal
 
@@ -675,6 +695,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             self.window?.isHidden = true
             self.window = nil
             self.rootView = nil
+            self.activeToken = nil
             heightConstraint = nil
             isPresenting = false
             isDismissing = false
@@ -693,12 +714,14 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         hostView.isUserInteractionEnabled = false
         panGestureRef?.isEnabled = false
 
-        let offsetY: CGFloat = {
-            switch presentedVPosition {
-            case .top:    return -window.bounds.height
-            case .bottom: return  window.bounds.height
-            case .center: return 0
+        let resolvedStyle: PresentationStyle = {
+            if presentationStyle == .automatic {
+                switch presentedVPosition {
+                case .center: return .scale
+                case .top, .bottom: return .slide
+                }
             }
+            return presentationStyle
         }()
 
         UIView.animate(
@@ -707,11 +730,39 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             options: [.curveEaseIn, .beginFromCurrentState]
         ) {
             hostView.alpha = 0
-            hostView.transform = (self.presentedVPosition == .center)
-                ? CGAffineTransform(scaleX: 0.9, y: 0.9)
-                : CGAffineTransform(translationX: 0, y: offsetY)
+
+            switch resolvedStyle {
+
+            case .slide:
+                let offsetY: CGFloat = {
+                    switch self.presentedVPosition {
+                    case .top:
+                        return -window.bounds.height
+                    case .bottom:
+                        return window.bounds.height
+                    case .center:
+                        return -hostView.bounds.height - 40
+                    }
+                }()
+
+                hostView.transform = CGAffineTransform(
+                    translationX: 0,
+                    y: offsetY
+                )
+
+            case .scale:
+                hostView.transform = CGAffineTransform(scaleX: 0.9, y: 0.9)
+
+            case .fade:
+                hostView.transform = .identity
+
+            default:
+                break
+            }
+
             hostView.layer.shadowOpacity = 0
             window.layoutIfNeeded()
+
         } completion: { _ in
             self.horizontalConstraints.forEach { $0.isActive = false }
             self.horizontalConstraints.removeAll()
@@ -863,6 +914,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         state.variant = .standard
         state.payload = p.payload
 
+        presentationStyle = p.payload.presentationStyle
         vPosition = p.payload.vPosition
         verticalMargin = p.payload.verticalMargin
         horizontalLayout = p.payload.horizontalLayout
@@ -1004,15 +1056,57 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
 
         // Presentation Animation
-
         presentedVPosition = vPosition
         interactionUnlockTime = CACurrentMediaTime() + 0.25
 
-        host.view.alpha = 0
-        host.view.transform = CGAffineTransform(scaleX: 0.95, y: 0.95)
-
         window.makeKeyAndVisible()
         window.layoutIfNeeded()
+
+        root.layoutIfNeeded()
+        host.view.layoutIfNeeded()
+
+        host.view.alpha = 0
+
+        let style: PresentationStyle = {
+            if presentationStyle == .automatic {
+                switch vPosition {
+                case .center: return .scale
+                case .top, .bottom: return .slide
+                }
+            }
+            return presentationStyle
+        }()
+
+        switch style {
+
+        case .slide:
+            switch vPosition {
+            case .top:
+                host.view.transform = CGAffineTransform(
+                    translationX: 0,
+                    y: -window.bounds.height
+                )
+            case .bottom:
+                host.view.transform = CGAffineTransform(
+                    translationX: 0,
+                    y: window.bounds.height
+                )
+            case .center:
+                host.view.transform = CGAffineTransform(
+                    translationX: 0,
+                    y: -host.view.bounds.height - 40
+                )
+            }
+
+        case .scale:
+            host.view.transform = CGAffineTransform(scaleX: 0.92, y: 0.92)
+
+        case .fade:
+            host.view.transform = .identity
+
+        case .automatic:
+            break
+        }
 
         UIView.animate(
             withDuration: 0.5,
