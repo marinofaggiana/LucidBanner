@@ -168,6 +168,10 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
     /// Scene where the banner window is attached.
     private var scene: UIWindowScene
+    /// Public windows Scene
+    public var windowScene: UIWindowScene {
+        scene
+    }
 
     /// Whether touches outside the banner are blocked.
     private var blocksTouches = false
