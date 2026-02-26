@@ -482,6 +482,10 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
         // Layout State
 
+        if oldPayload.presentationStyle != newPayload.presentationStyle {
+            presentationStyle = newPayload.presentationStyle
+        }
+
         if oldPayload.vPosition != newPayload.vPosition {
             vPosition = newPayload.vPosition
             presentedVPosition = newPayload.vPosition
@@ -783,6 +787,8 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             self.blocksTouches = false
             self.swipeToDismiss = false
             self.draggable = false
+
+            self.activeToken = nil
 
             self.dequeueAndStartIfNeeded()
 
@@ -1104,7 +1110,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         case .fade:
             host.view.transform = .identity
 
-        case .automatic:
+        default:
             break
         }
 
