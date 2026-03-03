@@ -674,6 +674,10 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         token == activeToken && window != nil
     }
 
+    public var isActive: Bool {
+        window != nil || isPresenting || isDismissing
+    }
+
     /// Returns the shared banner state for the active token.
     ///
     /// This method never exposes state for stale or queued banners.
