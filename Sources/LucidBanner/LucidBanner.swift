@@ -168,9 +168,14 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
     /// Scene where the banner window is attached.
     private var scene: UIWindowScene
+
     /// Public windows Scene
     public var windowScene: UIWindowScene {
         scene
+    }
+
+    public var isActive: Bool {
+        window != nil || isPresenting || isDismissing
     }
 
     /// Whether touches outside the banner are blocked.
@@ -672,10 +677,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// visible banner.
     public func isAlive(_ token: Int?) -> Bool {
         token == activeToken && window != nil
-    }
-
-    public var isActive: Bool {
-        window != nil || isPresenting || isDismissing
     }
 
     /// Returns the shared banner state for the active token.
