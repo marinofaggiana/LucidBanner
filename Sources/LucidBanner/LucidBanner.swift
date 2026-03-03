@@ -174,10 +174,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         scene
     }
 
-    public var isActive: Bool {
-        window != nil || isPresenting || isDismissing
-    }
-
     /// Whether touches outside the banner are blocked.
     private var blocksTouches = false
 
