@@ -690,13 +690,23 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// If a dismissal is already in progress, the completion is queued
     /// and executed when the current dismissal finishes.
     public func dismiss(completion: (() -> Void)? = nil) {
-
         if let completion {
             pendingDismissCompletions.append(completion)
         }
 
         dismissTimer?.cancel()
         dismissTimer = nil
+
+        if isPresenting {
+            pendingDismissCompletions.append { [weak self] in
+                self?.dismiss()
+            }
+            return
+        }
+
+        if isDismissing {
+            return
+        }
 
         guard let window, let hostView = hostController?.view else {
             hostController = nil
@@ -713,8 +723,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             completions.forEach { $0() }
             return
         }
-
-        if isDismissing { return }
 
         isPresenting = false
         isDismissing = true
@@ -1128,6 +1136,13 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             guard let self else { return }
 
             self.isAnimatingIn = false
+            self.isPresenting = false
+
+            // If a dismiss was requested while presenting, execute it now.
+            if self.isDismissing == false && self.pendingDismissCompletions.isEmpty == false {
+                self.dismiss()
+                return
+            }
 
             if self.pendingRelayout {
                 self.pendingRelayout = false
