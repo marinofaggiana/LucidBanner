@@ -7,15 +7,21 @@
 //  Overview:
 //  LucidBannerRegistry provides scene-scoped instances of LucidBanner.
 //
-//  In multi-window environments (e.g. iPad), each UIWindowScene may host
-//  its own independent banner state machine. The registry guarantees:
+//  In multi-window environments (e.g. iPadOS), each UIWindowScene
+//  owns an independent LucidBanner state machine. The registry ensures:
 //
-//  - One LucidBanner instance per UIWindowScene
-//  - Isolation of token spaces and queues
-//  - Deterministic behavior across multiple windows
+//  - Exactly one LucidBanner instance per UIWindowScene
+//  - Isolation of token generation and banner queues per scene
+//  - Deterministic behavior when multiple windows are active
 //
-//  The registry does not contain presentation logic.
-//  It only manages LucidBanner instance lifecycles.
+//  The registry contains no presentation, animation, or state logic.
+//  It acts purely as a scene-to-banner mapping layer.
+//
+//  Lifecycle Model:
+//  - Instances are created lazily on first access.
+//  - Instances should be removed when a scene disconnects.
+//  - The registry does not retain scene lifecycle responsibility;
+//    it only mirrors scene existence.
 //
 
 import UIKit
@@ -33,7 +39,7 @@ public final class LucidBannerRegistry {
             return existing
         }
 
-        let banner = LucidBanner()
+        let banner = LucidBanner(scene: scene)
         instances[id] = banner
         return banner
     }

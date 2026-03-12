@@ -8,8 +8,8 @@
 //  LucidBannerPayload is a value-type data model describing the complete
 //  visual, layout, interaction, and timing configuration of a LucidBanner.
 //
-//  The payload represents a full, immutable snapshot of banner configuration
-//  at a given point in time. It is designed to be:
+//  The payload represents a full configuration snapshot of a banner at a given point in time.
+//  It is designed to be:
 //  - Explicit: every aspect of banner behavior is represented.
 //  - Deterministic: identical payloads always produce identical behavior.
 //  - Side-effect free: the payload itself contains no logic.

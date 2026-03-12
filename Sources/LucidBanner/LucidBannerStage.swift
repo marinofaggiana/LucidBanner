@@ -7,10 +7,19 @@
 //  Overview:
 //  Defines the semantic stage model used by LucidBanner.
 //
-//  A stage expresses *meaning*, not presentation.
-//  It allows host applications to attach semantics such as
-//  styling, haptics, logging, or analytics without coupling
-//  to banner UI implementation.
+//  A stage represents semantic intent, not visual configuration.
+//  It allows host applications to attach meaning such as styling,
+//  haptics, logging, analytics, or state transitions without
+//  coupling that logic to banner presentation details.
+//
+//  A stage does not control layout, animation, positioning,
+//  or interaction behavior. Those concerns are resolved
+//  exclusively by LucidBanner and its payload system.
+//
+//  Design intent:
+//  - Keep semantic meaning separate from UI mechanics.
+//  - Allow higher-level orchestration without leaking presentation logic.
+//  - Preserve determinism by avoiding side effects inside the stage model.
 //
 
 import Foundation

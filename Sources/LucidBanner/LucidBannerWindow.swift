@@ -5,15 +5,22 @@
 //  Licensed under the MIT License.
 //
 //  Overview:
-//  LucidBannerWindow is a minimal `UIWindow` subclass whose sole
-//  responsibility is to host a LucidBanner above the application UI.
+//  LucidBannerWindow is a minimal UIWindow subclass dedicated to hosting
+//  a single scene-scoped LucidBanner above the application UI.
 //
-//  The window supports a *passthrough interaction mode*, allowing
-//  touches to flow through to the underlying application except for
-//  a designated interactive region representing the banner itself.
+//  The window exists purely as an isolation boundary between the banner
+//  presentation layer and the underlying application content.
 //
-//  This design enables LucidBanner to appear visually above the UI
-//  without behaving like a full modal overlay unless explicitly requested.
+//  Interaction Model:
+//  - Supports passthrough mode, forwarding touches outside the banner
+//    to the underlying application.
+//  - Supports blocking mode, where the banner behaves as a lightweight
+//    modal overlay.
+//  - Restricts hit-testing to a designated interactive region.
+//
+//  LucidBannerWindow does not manage lifecycle, layout, animation,
+//  or state. It is a thin infrastructure layer used exclusively
+//  by LucidBanner.
 //
 
 import UIKit

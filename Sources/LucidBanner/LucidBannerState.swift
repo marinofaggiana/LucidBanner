@@ -6,11 +6,20 @@
 //
 //  Overview:
 //  Shared observable state driving all SwiftUI rendering
-//  for a LucidBanner instance.
+//  for a single LucidBanner instance.
 //
-//  This object is the single source of truth for banner UI.
-//  SwiftUI views are pure functions of this state and never
-//  initiate presentation, dismissal, or side effects.
+//  This object acts as the single source of truth for banner UI.
+//  SwiftUI views are pure functions of this state and must not
+//  initiate presentation, dismissal, navigation, or side effects.
+//
+//  LucidBannerState does not own lifecycle logic.
+//  All state mutations are coordinated externally by LucidBanner,
+//  which guarantees MainActor execution and token safety.
+//
+//  Design intent:
+//  - Isolate rendering state from control flow.
+//  - Preserve determinism by centralizing mutations.
+//  - Ensure SwiftUI remains declarative and passive.
 //
 
 import SwiftUI

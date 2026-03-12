@@ -10,7 +10,7 @@
 //
 //  It provides animated, interruptible, and queueable in-app notifications
 //  presented above the entire application UI using a dedicated UIWindow.
-//  Only one banner may be visible at any time; additional requests are
+//  Only one banner may be visible at any time within a single scene
 //  handled through an explicit queue and show policy.
 //
 //  LucidBanner is intentionally not a view framework.
@@ -25,7 +25,7 @@
 //  - Guarantee MainActor execution for all UI mutations.
 //
 //  Invariants:
-//  - At most one banner window exists at any time.
+//  - At most one banner window exists per UIWindowScene.
 //  - A banner is uniquely identified by a token.
 //  - Updates never apply to stale banners.
 //  - SwiftUI content contains no presentation logic.
@@ -45,15 +45,6 @@ import UIKit
 /// They never initiate transitions or side effects.
 @MainActor
 public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
-
-    /// Global shared coordinator.
-    ///
-    /// LucidBanner is intentionally a singleton to guarantee:
-    /// - a single banner window
-    /// - a single shared observable state
-    /// - deterministic sequencing
-    public static let shared = LucidBanner()
-
     /// Policy describing how a new banner request is handled when
     /// another banner is already visible or transitioning.
     public enum ShowPolicy {
@@ -161,7 +152,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// PendingShow encapsulates configuration and content
     /// without instantiating any UI.
     private struct PendingShow {
-        let scene: UIWindowScene?
         let payload: LucidBannerPayload
         let onTap: ((_ token: Int?, _ stage: LucidBanner.Stage?) -> Void)?
         let viewUI: (LucidBannerState) -> AnyView
@@ -177,7 +167,12 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     // MARK: - Window & Hosting Infrastructure
 
     /// Scene where the banner window is attached.
-    private var scene: UIWindowScene?
+    private var scene: UIWindowScene
+
+    /// Public windows Scene
+    public var windowScene: UIWindowScene {
+        scene
+    }
 
     /// Whether touches outside the banner are blocked.
     private var blocksTouches = false
@@ -293,13 +288,28 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
     // MARK: - Initialization
 
-    /// Initializes the LucidBanner coordinator.
+    /// Initializes a scene-scoped LucidBanner coordinator.
     ///
-    /// Registers for application lifecycle notifications to ensure
-    /// banners are dismissed deterministically when the app
-    /// enters the background.
-    override public init() {
+    /// This initializer binds the banner engine to a specific `UIWindowScene`.
+    /// The banner instance becomes exclusively responsible for presenting
+    /// and managing overlay content within that scene.
+    ///
+    /// In multi-window environments (e.g. iPad), each scene must own its
+    /// own LucidBanner instance to guarantee:
+    /// - Isolation of presentation state
+    /// - Independent token spaces
+    /// - Independent banner queues
+    /// - Correct lifecycle handling when a scene deactivates or enters background
+    ///
+    /// The banner will observe lifecycle notifications for the provided scene
+    /// and automatically dismiss active overlays when the scene transitions
+    /// out of the foreground.
+    ///
+    /// - Parameter scene: The UIWindowScene that owns and hosts this banner.
+    init(scene: UIWindowScene) {
+        self.scene = scene
         super.init()
+
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(appDidEnterBackground),
@@ -344,7 +354,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// - Returns: A token uniquely identifying the banner request.
     @discardableResult
     public func show<Content: View>(
-        scene: UIWindowScene?,
         payload: LucidBannerPayload,
         policy: ShowPolicy = .enqueue,
         onTap: ((_ token: Int?, _ stage: LucidBanner.Stage?) -> Void)? = nil,
@@ -354,11 +363,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         generation &+= 1
         let newToken = generation
 
-        // If the app/scene is not active/visible, clear everything and do not present.
-        let isSceneActive: Bool = {
-            if let scene { return scene.activationState == .foregroundActive }
-            return UIApplication.shared.applicationState == .active
-        }()
+        let isSceneActive = scene.activationState == .foregroundActive
 
         if !isSceneActive {
             // Hard reset: drop any queued requests and dismiss any visible banner without animation.
@@ -373,7 +378,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
 
         let pending = PendingShow(
-            scene: scene,
             payload: payload,
             onTap: onTap,
             viewUI: viewFactory,
@@ -686,13 +690,23 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// If a dismissal is already in progress, the completion is queued
     /// and executed when the current dismissal finishes.
     public func dismiss(completion: (() -> Void)? = nil) {
-
         if let completion {
             pendingDismissCompletions.append(completion)
         }
 
         dismissTimer?.cancel()
         dismissTimer = nil
+
+        if isPresenting {
+            pendingDismissCompletions.append { [weak self] in
+                self?.dismiss()
+            }
+            return
+        }
+
+        if isDismissing {
+            return
+        }
 
         guard let window, let hostView = hostController?.view else {
             hostController = nil
@@ -709,8 +723,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             completions.forEach { $0() }
             return
         }
-
-        if isDismissing { return }
 
         isPresenting = false
         isDismissing = true
@@ -916,7 +928,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// Applies a queued banner configuration to internal state
     /// before presentation.
     private func applyPending(_ p: PendingShow) {
-        scene = p.scene
         state.variant = .standard
         state.payload = p.payload
 
@@ -958,8 +969,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     ///
     /// Must be called on the MainActor.
     private func attachWindowAndPresent() {
-        guard let scene = self.scene else { return }
-
         // Window
 
         let window = LucidBannerWindow(windowScene: scene)
@@ -1127,6 +1136,13 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             guard let self else { return }
 
             self.isAnimatingIn = false
+            self.isPresenting = false
+
+            // If a dismiss was requested while presenting, execute it now.
+            if self.isDismissing == false && self.pendingDismissCompletions.isEmpty == false {
+                self.dismiss()
+                return
+            }
 
             if self.pendingRelayout {
                 self.pendingRelayout = false
