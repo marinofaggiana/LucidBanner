@@ -1156,12 +1156,11 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         switch style {
 
         case .slide:
-
             let initialOffsetY: CGFloat = {
                 switch vPosition {
                 case .top: return -window.bounds.height
                 case .bottom: return window.bounds.height
-                case .center: return -window.bounds.height * 0.5
+                case .center: return -host.view.bounds.height - 40
                 }
             }()
 
