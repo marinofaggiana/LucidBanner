@@ -1034,8 +1034,14 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// applies layout constraints, and runs the presentation animation.
     ///
     /// Must be called on the MainActor.
+    /// Attaches the banner window and presents the SwiftUI content.
+    ///
+    /// This method bridges the banner state machine with UIKit.
+    /// It creates the UIWindow, installs the hosting controller,
+    /// applies layout constraints, and runs the presentation animation.
+    ///
+    /// Must be called on the MainActor.
     private func attachWindowAndPresent() {
-
         let window = LucidBannerWindow(windowScene: scene)
         window.windowLevel = .statusBar + 1
         window.backgroundColor = .clear
@@ -1132,16 +1138,16 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         root.layoutIfNeeded()
         window.layoutIfNeeded()
 
+        // Reset initial state
         offset = .zero
         offsetTransform = .identity
         effectTransform = .identity
         animationTransform = .identity
+
         host.view.transform = .identity
+        host.view.alpha = 0
 
-        applyTransforms()
-        applyTransforms()
-
-        window.makeKeyAndVisible()
+        // Resolve presentation style
 
         let style: PresentationStyle = {
             if presentationStyle == .automatic {
@@ -1153,23 +1159,28 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             return presentationStyle
         }()
 
+        // Initial animation state (before visibility)
+
         switch style {
 
         case .slide:
+
             let initialOffsetY: CGFloat = {
                 switch vPosition {
-                case .top: return -window.bounds.height
-                case .bottom: return window.bounds.height
-                case .center: return -host.view.bounds.height - 40
+                case .top:
+                    return -window.bounds.height
+                case .bottom:
+                    return window.bounds.height
+                case .center:
+                    // FIX: use frame instead of bounds
+                    return -host.view.frame.height - 40
                 }
             }()
 
             animationTransform = CGAffineTransform(translationX: 0, y: initialOffsetY)
-            applyTransforms()
 
         case .scale:
             effectTransform = CGAffineTransform(scaleX: 0.92, y: 0.92)
-            applyTransforms()
 
         case .fade:
             break
@@ -1177,6 +1188,10 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         default:
             break
         }
+
+        applyTransforms()
+
+        window.makeKeyAndVisible()
 
         UIView.animate(
             withDuration: 0.5,
@@ -1203,7 +1218,8 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         } completion: { [weak self] _ in
             guard let self else { return }
 
-            self.interactionUnlockTime = CACurrentMediaTime() + 0.001
+            self.interactionUnlockTime = CACurrentMediaTime()
+
             self.isAnimatingIn = false
             self.isPresenting = false
 
