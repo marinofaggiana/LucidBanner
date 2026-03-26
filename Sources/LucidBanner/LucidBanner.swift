@@ -1091,7 +1091,10 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
         case .center:
             let centerY = useSafeArea ? guide.centerYAnchor : root.centerYAnchor
-            host.view.centerYAnchor.constraint(equalTo: centerY).isActive = true
+            host.view.centerYAnchor.constraint(
+                equalTo: centerY,
+                constant: verticalMargin
+            ).isActive = true
 
         case .bottom:
             host.view.bottomAnchor.constraint(
@@ -1282,7 +1285,10 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
         case .center:
             let centerY = useSafeArea ? guide.centerYAnchor : root.centerYAnchor
-            hostView.centerYAnchor.constraint(equalTo: centerY).isActive = true
+            hostView.centerYAnchor.constraint(
+                equalTo: centerY,
+                constant: verticalMargin
+            ).isActive = true
 
         case .bottom:
             hostView.bottomAnchor.constraint(
