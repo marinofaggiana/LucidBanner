@@ -508,6 +508,8 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         if oldPayload.vPosition != newPayload.vPosition {
             vPosition = newPayload.vPosition
             presentedVPosition = newPayload.vPosition
+            offset = .zero
+            updateOffsetTransform()
         }
 
         if oldPayload.verticalMargin != newPayload.verticalMargin {
@@ -555,14 +557,17 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
 
         // Layout Pass
-
         if mergeResult.needsRelayout {
+            offset = .zero
+            updateOffsetTransform()
+
             if isAnimatingIn || isDismissing {
                 pendingRelayout = true
             } else {
                 remeasure(animated: true)
             }
         } else {
+
             UIView.performWithoutAnimation {
                 self.applyTransforms()
                 window.layoutIfNeeded()
@@ -570,7 +575,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
 
         // Auto-dismiss
-
         if shouldRescheduleAutoDismiss {
             scheduleAutoDismiss()
         }
