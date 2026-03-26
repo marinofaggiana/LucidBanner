@@ -253,16 +253,23 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// Pan gesture used for dragging or swipe-to-dismiss.
     private weak var panGestureRef: UIPanGestureRecognizer?
 
-    /// Starting transform used for incremental dragging.
-    private var dragStartTransform: CGAffineTransform = .identity
-
     /// Starting frame snapshot for drag clamping.
     private var dragStartFrameInContainer: CGRect = .zero
+
+    /// Starting offset snapshot used for incremental dragging.
+    private var dragStartOffset: CGPoint = .zero
 
     /// Shared observable state injected into SwiftUI.
     ///
     /// This is the single source of truth for UI rendering.
     let state = LucidBannerState(payload: LucidBannerPayload())
+
+    // MARK: - Position State
+
+    /// Logical offset applied on top of Auto Layout.
+    ///
+    /// This is the single source of truth for persistent visual displacement.
+    private var offset: CGPoint = .zero
 
     // MARK: - Interaction Configuration
 
@@ -565,8 +572,8 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// Translates the banner so that its visual center matches the given
     /// point in window coordinates.
     ///
-    /// The movement is applied as a delta transform on top of the current
-    /// transform, preserving any active drag offset.
+    /// The movement is applied as a delta on top of the current logical offset,
+    /// preserving the visual position across future layout passes.
     ///
     /// - Parameters:
     ///   - x: Target X coordinate in window space.
@@ -583,10 +590,11 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         let dx = x - currentCenter.x
         let dy = y - currentCenter.y
 
-        let targetTransform = hostView.transform.translatedBy(x: dx, y: dy)
+        offset.x += dx
+        offset.y += dy
 
         let animations = {
-            hostView.transform = targetTransform
+            self.applyOffset()
         }
 
         if animated {
@@ -603,7 +611,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
     }
 
-    /// Resets any custom transform applied to the banner, restoring the
+    /// Resets any custom offset applied to the banner, restoring the
     /// position defined exclusively by Auto Layout.
     ///
     /// - Parameters:
@@ -611,10 +619,12 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     ///   - animated: Whether the reset is animated.
     public func resetPosition(for token: Int? = nil, animated: Bool = true) {
         guard window != nil, token == nil || token == activeToken else { return }
-        guard let hostView = hostController?.view else { return }
+        guard hostController?.view != nil else { return }
+
+        offset = .zero
 
         let animations = {
-            hostView.transform = .identity
+            self.applyOffset()
         }
 
         if animated {
@@ -717,6 +727,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             heightConstraint = nil
             isPresenting = false
             isDismissing = false
+            offset = .zero
 
             let completions = pendingDismissCompletions
             pendingDismissCompletions.removeAll()
@@ -761,16 +772,14 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                     }
                 }()
 
-                hostView.transform = CGAffineTransform(
-                    translationX: 0,
-                    y: offsetY
-                )
+                self.offset.y += offsetY
+                self.applyOffset()
 
             case .scale:
                 hostView.transform = CGAffineTransform(scaleX: 0.9, y: 0.9)
 
             case .fade:
-                hostView.transform = .identity
+                break
 
             default:
                 break
@@ -801,6 +810,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             self.draggable = false
 
             self.activeToken = nil
+            self.offset = .zero
 
             self.dequeueAndStartIfNeeded()
 
@@ -853,6 +863,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     public func dismissAll(animated: Bool = true, completion: (() -> Void)? = nil) {
         guard let window else {
             activeToken = nil
+            offset = .zero
             completion?()
             return
         }
@@ -875,6 +886,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             self.blocksTouches = false
             self.swipeToDismiss = false
             self.draggable = false
+            self.offset = .zero
             completion?()
         }
 
@@ -943,6 +955,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         swipeToDismiss = p.payload.blocksTouches ? false : p.payload.swipeToDismiss
 
         onTap = p.onTap
+        offset = .zero
     }
 
     /// Dequeues and presents the next banner, if possible.
@@ -970,15 +983,13 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// Must be called on the MainActor.
     private func attachWindowAndPresent() {
         // Window
-
         let window = LucidBannerWindow(windowScene: scene)
         window.windowLevel = .statusBar + 1
         window.backgroundColor = .clear
         window.isPassthrough = !blocksTouches
         window.accessibilityViewIsModal = blocksTouches
 
-        // Root Container
-
+        // Root
         let root = UIView()
         root.backgroundColor = .clear
         self.rootView = root
@@ -987,8 +998,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         rootViewController.view = root
         window.rootViewController = rootViewController
 
-        // SwiftUI Hosting
-
+        // Hosting
         let content = contentView?(state) ?? AnyView(EmptyView())
         let host = UIHostingController(rootView: content)
         host.view.backgroundColor = .clear
@@ -998,8 +1008,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         root.addSubview(host.view)
         host.didMove(toParent: rootViewController)
 
-        // Scrim (Touch Blocking)
-
+        // Scrim
         let scrim = UIControl()
         scrim.translatesAutoresizingMaskIntoConstraints = false
         scrim.backgroundColor = UIColor.black.withAlphaComponent(blocksTouches ? 0.08 : 0.0)
@@ -1015,8 +1024,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             scrim.bottomAnchor.constraint(equalTo: root.bottomAnchor)
         ])
 
-        // Layout Constraints
-
+        // Layout
         let guide = root.safeAreaLayoutGuide
         let useSafeArea = respectsSafeArea
 
@@ -1042,7 +1050,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         applyHorizontalLayoutConstraints(hostView: host.view, root: root)
 
         // Gestures
-
         window.hitTargetView = host.view
 
         let tap = UITapGestureRecognizer(target: self, action: #selector(handleBannerTap))
@@ -1051,37 +1058,35 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         host.view.addGestureRecognizer(tap)
 
         // Accessibility
-
         host.view.isAccessibilityElement = true
         host.view.accessibilityTraits.insert(.button)
         host.view.accessibilityLabel = "Banner"
 
-        // Finalize References
-
+        // References
         self.window = window
         self.hostController = host
 
         ensurePanGestureInstalled()
         panGestureRef?.isEnabled = swipeToDismiss || draggable
 
-        // Layout Change Observation
-
         window.onLayoutChange = { [weak self] in
             self?.pendingRelayout = true
         }
 
-        // Presentation Animation
+        // Prepare Layout
         presentedVPosition = vPosition
-        interactionUnlockTime = CACurrentMediaTime() + 0.25
-
-        window.makeKeyAndVisible()
-        window.layoutIfNeeded()
+        interactionUnlockTime = .greatestFiniteMagnitude
 
         root.layoutIfNeeded()
-        host.view.layoutIfNeeded()
+        window.layoutIfNeeded()
+        window.makeKeyAndVisible()
 
+        offset = .zero
+        applyOffset()
+        host.view.transform = .identity
         host.view.alpha = 0
 
+        // Style
         let style: PresentationStyle = {
             if presentationStyle == .automatic {
                 switch vPosition {
@@ -1092,37 +1097,36 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             return presentationStyle
         }()
 
+        // Initial State
         switch style {
 
         case .slide:
             switch vPosition {
             case .top:
-                host.view.transform = CGAffineTransform(
-                    translationX: 0,
-                    y: -window.bounds.height
-                )
+                offset.y = -window.bounds.height
+
             case .bottom:
-                host.view.transform = CGAffineTransform(
-                    translationX: 0,
-                    y: window.bounds.height
-                )
+                offset.y = window.bounds.height
+
             case .center:
-                host.view.transform = CGAffineTransform(
-                    translationX: 0,
-                    y: -host.view.bounds.height - 40
-                )
+                let offscreenHeight = max(host.view.bounds.height, minHeight)
+                let safeHeight = offscreenHeight > 1 ? offscreenHeight : window.bounds.height * 0.5
+                offset.y = -safeHeight - 40
             }
+
+            applyOffset()
 
         case .scale:
             host.view.transform = CGAffineTransform(scaleX: 0.92, y: 0.92)
 
         case .fade:
-            host.view.transform = .identity
+            break
 
         default:
             break
         }
 
+        // Animation
         UIView.animate(
             withDuration: 0.5,
             delay: 0,
@@ -1131,14 +1135,30 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             options: [.curveEaseOut, .beginFromCurrentState]
         ) {
             host.view.alpha = 1
-            host.view.transform = .identity
+
+            switch style {
+            case .slide:
+                self.offset = .zero
+                self.applyOffset()
+
+            case .scale:
+                host.view.transform = .identity
+
+            case .fade:
+                break
+
+            default:
+                break
+            }
+
         } completion: { [weak self] _ in
             guard let self else { return }
+
+            self.interactionUnlockTime = CACurrentMediaTime() + 0.001
 
             self.isAnimatingIn = false
             self.isPresenting = false
 
-            // If a dismiss was requested while presenting, execute it now.
             if self.isDismissing == false && self.pendingDismissCompletions.isEmpty == false {
                 self.dismiss()
                 return
@@ -1226,6 +1246,18 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
     // MARK: - Internals: Layout Measurement
 
+    /// Applies the current logical offset to the banner transform.
+    ///
+    /// This keeps the visual position stable across layout recalculations.
+    private func applyOffset() {
+        guard let hostView = hostController?.view else { return }
+
+        hostView.transform = CGAffineTransform(
+            translationX: offset.x,
+            y: offset.y
+        )
+    }
+
     /// Re-measures the SwiftUI content and stabilizes the banner height.
     ///
     /// This prevents vertical jumps when intrinsic content size changes.
@@ -1275,6 +1307,8 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                 animations()
             }
         }
+
+        applyOffset()
     }
 
     // MARK: - Internals: Auto-dismiss Scheduling
@@ -1397,7 +1431,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         // Prevent interaction during initial animation.
         if CACurrentMediaTime() < interactionUnlockTime { return }
 
-        // Drag Mode
+        // MARK: - DRAG MODE (UNCHANGED)
 
         if draggable {
             guard let container = view.superview else { return }
@@ -1406,19 +1440,18 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
             switch g.state {
             case .began:
-                // Capture the starting transform and frame.
-                dragStartTransform = view.transform
                 dragStartFrameInContainer = view.frame
+                dragStartOffset = offset
 
             case .changed:
-                // Apply translation relative to the starting transform.
-                var transform = dragStartTransform
-                    .translatedBy(x: translation.x, y: translation.y)
+                var newOffset = CGPoint(
+                    x: dragStartOffset.x + translation.x,
+                    y: dragStartOffset.y + translation.y
+                )
 
                 let proposedFrame = dragStartFrameInContainer
-                    .offsetBy(dx: 0, dy: translation.y)
+                    .offsetBy(dx: translation.x, dy: translation.y)
 
-                // Clamp movement vertically within safe area.
                 let insets = container.safeAreaInsets
                 let minY = insets.top
                 let maxY = container.bounds.height
@@ -1426,16 +1459,15 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                     - dragStartFrameInContainer.height
 
                 if proposedFrame.minY < minY {
-                    transform.ty += (minY - proposedFrame.minY)
+                    newOffset.y += (minY - proposedFrame.minY)
                 } else if proposedFrame.minY > maxY {
-                    transform.ty -= (proposedFrame.minY - maxY)
+                    newOffset.y -= (proposedFrame.minY - maxY)
                 }
 
-                view.transform = transform
-                view.alpha = 1.0
+                offset = newOffset
+                applyOffset()
 
             case .ended, .cancelled, .failed:
-                // End drag without snapping or dismissal.
                 UIView.animate(
                     withDuration: 0.25,
                     delay: 0,
@@ -1452,56 +1484,55 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             return
         }
 
-        // Swipe-to-Dismiss Mode
+        // MARK: - SWIPE TO DISMISS
 
-        let translation = g.translation(in: view)
+        guard let container = view.superview else { return }
+
+        let translation = g.translation(in: container)
         let dy = translation.y
 
-        func applyTransform(for offsetY: CGFloat) {
+        switch g.state {
+
+        case .began:
+            dragStartOffset = offset
+
+        case .changed:
+
+            var newOffset = dragStartOffset
+
             switch presentedVPosition {
             case .top:
-                view.transform = CGAffineTransform(
-                    translationX: 0,
-                    y: min(0, offsetY)
-                )
+                newOffset.y += min(0, dy)
 
             case .bottom:
-                view.transform = CGAffineTransform(
-                    translationX: 0,
-                    y: max(0, offsetY)
-                )
+                newOffset.y += max(0, dy)
 
             case .center:
-                let t = max(-80, min(80, offsetY))
-                let scale = max(0.9, 1.0 - abs(t) / 800.0)
-                view.transform = CGAffineTransform(
-                    translationX: 0,
-                    y: t
-                ).scaledBy(x: scale, y: scale)
+                let t = max(-80, min(80, dy))
+                newOffset.y += t
             }
-        }
 
-        switch g.state {
-        case .changed:
-            applyTransform(for: dy)
-            view.alpha = max(
-                0.4,
-                1.0 - abs(view.transform.ty) / 120.0
-            )
+            offset = newOffset
+            applyOffset()
+
+            let visualY = offset.y - dragStartOffset.y
+            view.alpha = max(0.4, 1.0 - abs(visualY) / 120.0)
 
         case .ended, .cancelled:
+
             let velocityY = g.velocity(in: view).y
+            let totalY = offset.y - dragStartOffset.y
 
             let shouldDismiss: Bool = {
                 switch presentedVPosition {
                 case .top:
-                    return dy < -30 || velocityY < -500
+                    return totalY < -30 || velocityY < -500
 
                 case .bottom:
-                    return dy > 30 || velocityY > 500
+                    return totalY > 30 || velocityY > 500
 
                 case .center:
-                    return abs(dy) > 40 || abs(velocityY) > 600
+                    return abs(totalY) > 40 || abs(velocityY) > 600
                 }
             }()
 
@@ -1516,7 +1547,8 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
                     options: [.curveEaseOut, .beginFromCurrentState]
                 ) {
                     view.alpha = 1
-                    view.transform = .identity
+                    self.offset = self.dragStartOffset
+                    self.applyOffset()
                 }
             }
 
@@ -1555,4 +1587,3 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         onTap?(activeToken, state.payload.stage)
     }
 }
-
