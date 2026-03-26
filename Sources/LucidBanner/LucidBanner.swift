@@ -1293,15 +1293,10 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     }
 
     private func currentLayoutFrame() -> CGRect? {
-        guard let hostView = hostController?.view else { return nil }
+        guard let hostView = hostController?.view,
+              let container = hostView.superview else { return nil }
 
-        let currentTransform = hostView.transform
-        hostView.transform = .identity
-
-        let frame = hostView.frame
-
-        hostView.transform = currentTransform
-        return frame
+        return container.convert(hostView.frame, to: nil)
     }
 
     // MARK: - Internals: Layout Measurement
@@ -1499,12 +1494,9 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// depending on the current interaction configuration.
     @objc private func handlePanGesture(_ g: UIPanGestureRecognizer) {
         guard let view = hostController?.view else { return }
-
         // Prevent interaction during initial animation.
         if isAnimatingIn { return }
         if CACurrentMediaTime() < interactionUnlockTime { return }
-
-        // MARK: - DRAG MODE (UNCHANGED)
 
         if draggable {
             guard let container = view.superview else { return }
@@ -1513,7 +1505,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
             switch g.state {
             case .began:
-                dragStartFrameInContainer = view.frame
+                dragStartFrameInContainer = container.convert(view.frame, to: container)
                 dragStartOffset = offset
 
             case .changed:
