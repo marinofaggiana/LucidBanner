@@ -591,10 +591,15 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     ///   - animated: Whether the movement is animated.
     public func move(toX x: CGFloat, y: CGFloat, for token: Int? = nil, animated: Bool = true) {
         guard window != nil, token == nil || token == activeToken else { return }
-        guard let window, let hostView = hostController?.view else { return }
+        guard let hostView = hostController?.view else { return }
 
-        let frameInWindow = hostView.convert(hostView.bounds, to: window)
-        let currentCenter = CGPoint(x: frameInWindow.midX, y: frameInWindow.midY)
+        let currentTransform = hostView.transform
+        hostView.transform = .identity
+
+        let frame = hostView.frame
+        let currentCenter = CGPoint(x: frame.midX, y: frame.midY)
+
+        hostView.transform = currentTransform
 
         let dx = x - currentCenter.x
         let dy = y - currentCenter.y
@@ -659,8 +664,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// - Returns: The banner frame, or `nil` if not visible.
     public func currentFrameInWindow(for token: Int? = nil) -> CGRect? {
         guard window != nil, token == nil || token == activeToken else { return nil }
-        guard let window, let hostView = hostController?.view else { return nil }
-        return hostView.convert(hostView.bounds, to: window)
+        return currentLayoutFrame()
     }
 
     /// Returns the underlying UIKit host view of the active banner.
@@ -806,6 +810,8 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             window.layoutIfNeeded()
 
         } completion: { _ in
+            hostView.transform = .identity
+
             self.horizontalConstraints.forEach { $0.isActive = false }
             self.horizontalConstraints.removeAll()
 
@@ -900,6 +906,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
 
         let finalize = {
+            self.hostController?.view.transform = .identity
             self.activeToken = nil
             window.isHidden = true
             window.rootViewController = nil
@@ -1050,6 +1057,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
         rootViewController.addChild(host)
         root.addSubview(host.view)
+        host.view.transform = .identity
         host.didMove(toParent: rootViewController)
 
         let scrim = UIControl()
@@ -1070,21 +1078,24 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         let guide = root.safeAreaLayoutGuide
         let useSafeArea = respectsSafeArea
 
+        let referenceTop = useSafeArea ? guide.topAnchor : root.topAnchor
+        let referenceBottom = useSafeArea ? guide.bottomAnchor : root.bottomAnchor
+
         switch vPosition {
+
         case .top:
             host.view.topAnchor.constraint(
-                equalTo: useSafeArea ? guide.topAnchor : root.topAnchor,
+                equalTo: referenceTop,
                 constant: verticalMargin
             ).isActive = true
 
         case .center:
-            host.view.centerYAnchor.constraint(
-                equalTo: useSafeArea ? guide.centerYAnchor : root.centerYAnchor
-            ).isActive = true
+            let centerY = useSafeArea ? guide.centerYAnchor : root.centerYAnchor
+            host.view.centerYAnchor.constraint(equalTo: centerY).isActive = true
 
         case .bottom:
             host.view.bottomAnchor.constraint(
-                equalTo: useSafeArea ? guide.bottomAnchor : root.bottomAnchor,
+                equalTo: referenceBottom,
                 constant: -verticalMargin
             ).isActive = true
         }
@@ -1117,15 +1128,17 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
         root.layoutIfNeeded()
         window.layoutIfNeeded()
-        window.makeKeyAndVisible()
 
         offset = .zero
         offsetTransform = .identity
         effectTransform = .identity
         animationTransform = .identity
+        host.view.transform = .identity
 
         applyTransforms()
-        host.view.alpha = 0
+        applyTransforms()
+
+        window.makeKeyAndVisible()
 
         let style: PresentationStyle = {
             if presentationStyle == .automatic {
@@ -1143,14 +1156,9 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
             let initialOffsetY: CGFloat = {
                 switch vPosition {
-                case .top:
-                    return -window.bounds.height
-                case .bottom:
-                    return window.bounds.height
-                case .center:
-                    let offscreenHeight = max(host.view.bounds.height, minHeight)
-                    let safeHeight = offscreenHeight > 1 ? offscreenHeight : window.bounds.height * 0.5
-                    return -safeHeight - 40
+                case .top: return -window.bounds.height
+                case .bottom: return window.bounds.height
+                case .center: return -window.bounds.height * 0.5
                 }
             }()
 
@@ -1180,18 +1188,15 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             switch style {
             case .slide:
                 self.animationTransform = .identity
-                self.applyTransforms()
-
             case .scale:
                 self.effectTransform = .identity
-                self.applyTransforms()
-
             case .fade:
                 break
-
             default:
                 break
             }
+
+            self.applyTransforms()
 
         } completion: { [weak self] _ in
             guard let self else { return }
@@ -1264,24 +1269,39 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             }
         )
 
+        let referenceTop = useSafeArea ? guide.topAnchor : root.topAnchor
+        let referenceBottom = useSafeArea ? guide.bottomAnchor : root.bottomAnchor
+
         switch vPosition {
+
         case .top:
             hostView.topAnchor.constraint(
-                equalTo: useSafeArea ? guide.topAnchor : root.topAnchor,
+                equalTo: referenceTop,
                 constant: verticalMargin
             ).isActive = true
 
         case .center:
-            hostView.centerYAnchor.constraint(
-                equalTo: useSafeArea ? guide.centerYAnchor : root.centerYAnchor
-            ).isActive = true
+            let centerY = useSafeArea ? guide.centerYAnchor : root.centerYAnchor
+            hostView.centerYAnchor.constraint(equalTo: centerY).isActive = true
 
         case .bottom:
             hostView.bottomAnchor.constraint(
-                equalTo: useSafeArea ? guide.bottomAnchor : root.bottomAnchor,
+                equalTo: referenceBottom,
                 constant: -verticalMargin
             ).isActive = true
         }
+    }
+
+    private func currentLayoutFrame() -> CGRect? {
+        guard let hostView = hostController?.view else { return nil }
+
+        let currentTransform = hostView.transform
+        hostView.transform = .identity
+
+        let frame = hostView.frame
+
+        hostView.transform = currentTransform
+        return frame
     }
 
     // MARK: - Internals: Layout Measurement
@@ -1340,6 +1360,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
         let animations = {
             window.layoutIfNeeded()
+
             self.applyTransforms()
         }
 
