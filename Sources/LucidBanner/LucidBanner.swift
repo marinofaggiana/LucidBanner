@@ -591,16 +591,13 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     ///   - animated: Whether the movement is animated.
     public func move(toX x: CGFloat, y: CGFloat, for token: Int? = nil, animated: Bool = true) {
         guard window != nil, token == nil || token == activeToken else { return }
-        guard let hostView = hostController?.view else { return }
-
-        let currentTransform = hostView.transform
-        hostView.transform = .identity
-
-        let frame = hostView.frame
-        let currentCenter = CGPoint(x: frame.midX, y: frame.midY)
-
-        hostView.transform = currentTransform
-
+        guard let hostView = hostController?.view,
+              let container = hostView.superview else { return }
+        let frameInWindow = container.convert(hostView.frame, to: nil)
+        let currentCenter = CGPoint(
+            x: frameInWindow.midX,
+            y: frameInWindow.midY
+        )
         let dx = x - currentCenter.x
         let dy = y - currentCenter.y
 
