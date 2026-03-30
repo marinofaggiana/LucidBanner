@@ -508,8 +508,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         if oldPayload.vPosition != newPayload.vPosition {
             vPosition = newPayload.vPosition
             presentedVPosition = newPayload.vPosition
-            offset = .zero
-            updateOffsetTransform()
         }
 
         if oldPayload.verticalMargin != newPayload.verticalMargin {
@@ -558,7 +556,6 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
         // Layout Pass
         if mergeResult.needsRelayout {
-            offset = .zero
             updateOffsetTransform()
 
             if isAnimatingIn || isDismissing {
@@ -1333,6 +1330,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
         heightConstraint?.isActive = false
 
+        let oldFrame = currentLayoutFrame()
         let targetWidth = max(hostView.bounds.width, 1)
 
         hostView.invalidateIntrinsicContentSize()
@@ -1359,6 +1357,18 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
         let animations = {
             window.layoutIfNeeded()
+
+            if let oldFrame,
+               let newFrame = self.currentLayoutFrame() {
+
+                let dx = oldFrame.midX - newFrame.midX
+                let dy = oldFrame.midY - newFrame.midY
+
+                self.offset.x += dx
+                self.offset.y += dy
+
+                self.updateOffsetTransform()
+            }
 
             self.applyTransforms()
         }
