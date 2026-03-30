@@ -209,7 +209,7 @@ public final class LucidBannerVariantCoordinator {
 
         // Disable dragging while in alternate variant.
         banner.setDraggingEnabled(false, for: token)
-
+        banner.currentHostView(for: token)?.transform = .identity
         banner.requestRelayout(animated: false)
 
         // Apply explicit movement only if requested.
