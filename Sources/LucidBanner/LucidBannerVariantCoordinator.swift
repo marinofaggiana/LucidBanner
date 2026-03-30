@@ -209,8 +209,8 @@ public final class LucidBannerVariantCoordinator {
 
         // Disable dragging while in alternate variant.
         banner.setDraggingEnabled(false, for: token)
-        banner.currentHostView(for: token)?.transform = .identity
         banner.requestRelayout(animated: false)
+        banner.currentHostView(for: token)?.transform = .identity
 
         // Apply explicit movement only if requested.
         if let point = resolution.targetPoint {
