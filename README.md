@@ -41,11 +41,11 @@ LucidBanner includes a Swift Package manifest.
 
 In Xcode, choose **File → Add Package Dependencies…**, enter the repository URL, select the desired version or branch, then add **LucidBanner** to the target.
 
-You can also declare it from another package:
+You can also declare the current release from another package:
 
 ```swift
 dependencies: [
-    .package(url: "<repository-url>", branch: "main")
+    .package(url: "https://github.com/marinofaggiana/LucidBanner.git", from: "0.7.1")
 ]
 ```
 
@@ -371,30 +371,6 @@ let onlyIfNonEmpty = rawTitle.nilIfEmpty
 
 `trimmedNilIfEmpty` removes leading/trailing whitespace and returns `nil` for an empty result. `nilIfEmpty` only checks direct emptiness.
 
-## Positioning, layout, and runtime inspection
-
-The active banner can be repositioned or inspected without rebuilding its SwiftUI content:
-
-```swift
-// The scene that owns this banner instance.
-let scene = banner.windowScene
-
-// Move the active banner in window coordinates.
-banner.move(toX: 180, y: 96, for: token, animated: true)
-banner.resetPosition(for: token, animated: true)
-
-// Inspect the currently hosted banner.
-let frame = banner.currentFrameInWindow(for: token)
-let hostView = banner.currentHostView(for: token)
-let state = banner.currentState(for: token)
-
-// Change live interaction/layout behavior.
-banner.setDraggingEnabled(false, for: token)
-banner.setRespectsSafeArea(true, for: token, animated: true)
-banner.requestRelayout(animated: true)
-```
-
-`move(toX:y:for:animated:)` and `resetPosition(for:animated:)` operate on the visible banner. The optional token defaults to the active banner. `currentFrameInWindow(for:)`, `currentHostView(for:)`, and `currentState(for:)` return `nil` when the requested token is no longer active.
 
 ## License
 
