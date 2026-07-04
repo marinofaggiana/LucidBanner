@@ -7,22 +7,26 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		F7F849582EF44D8000FAF123 /* LucidBannerStage.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7F849522EF44D8000FAF123 /* LucidBannerStage.swift */; };
-		F7F849592EF44D8000FAF123 /* LucidBannerMinimizeCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7F849512EF44D8000FAF123 /* LucidBannerMinimizeCoordinator.swift */; };
-		F7F8495A2EF44D8000FAF123 /* LucidBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7F849502EF44D8000FAF123 /* LucidBanner.swift */; };
-		F7F8495B2EF44D8000FAF123 /* LucidBannerStage+State.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7F849532EF44D8000FAF123 /* LucidBannerStage+State.swift */; };
-		F7F8495C2EF44D8000FAF123 /* LucidBannerState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7F849542EF44D8000FAF123 /* LucidBannerState.swift */; };
-		F7F8495D2EF44D8000FAF123 /* LucidBannerWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7F849552EF44D8000FAF123 /* LucidBannerWindow.swift */; };
+		F7E8F73A2FF8D3390067D623 /* LucidBannerPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7E8F7322FF8D3390067D623 /* LucidBannerPayload.swift */; };
+		F7E8F73B2FF8D3390067D623 /* LucidBannerRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7E8F7332FF8D3390067D623 /* LucidBannerRegistry.swift */; };
+		F7E8F73C2FF8D3390067D623 /* LucidBannerState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7E8F7352FF8D3390067D623 /* LucidBannerState.swift */; };
+		F7E8F73D2FF8D3390067D623 /* LucidBannerStage.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7E8F7342FF8D3390067D623 /* LucidBannerStage.swift */; };
+		F7E8F73E2FF8D3390067D623 /* LucidBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7E8F7312FF8D3390067D623 /* LucidBanner.swift */; };
+		F7E8F73F2FF8D3390067D623 /* LucidBannerWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7E8F7372FF8D3390067D623 /* LucidBannerWindow.swift */; };
+		F7E8F7402FF8D3390067D623 /* LucidBannerVariantCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7E8F7362FF8D3390067D623 /* LucidBannerVariantCoordinator.swift */; };
+		F7E8F7412FF8D3390067D623 /* String.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7E8F72F2FF8D3390067D623 /* String.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		F765EE922EF44AC1001FDB8A /* LucidBannerUIKitDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LucidBannerUIKitDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		F7F849502EF44D8000FAF123 /* LucidBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LucidBanner.swift; sourceTree = "<group>"; };
-		F7F849512EF44D8000FAF123 /* LucidBannerMinimizeCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LucidBannerMinimizeCoordinator.swift; sourceTree = "<group>"; };
-		F7F849522EF44D8000FAF123 /* LucidBannerStage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LucidBannerStage.swift; sourceTree = "<group>"; };
-		F7F849532EF44D8000FAF123 /* LucidBannerStage+State.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LucidBannerStage+State.swift"; sourceTree = "<group>"; };
-		F7F849542EF44D8000FAF123 /* LucidBannerState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LucidBannerState.swift; sourceTree = "<group>"; };
-		F7F849552EF44D8000FAF123 /* LucidBannerWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LucidBannerWindow.swift; sourceTree = "<group>"; };
+		F7E8F72F2FF8D3390067D623 /* String.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = String.swift; sourceTree = "<group>"; };
+		F7E8F7312FF8D3390067D623 /* LucidBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LucidBanner.swift; sourceTree = "<group>"; };
+		F7E8F7322FF8D3390067D623 /* LucidBannerPayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LucidBannerPayload.swift; sourceTree = "<group>"; };
+		F7E8F7332FF8D3390067D623 /* LucidBannerRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LucidBannerRegistry.swift; sourceTree = "<group>"; };
+		F7E8F7342FF8D3390067D623 /* LucidBannerStage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LucidBannerStage.swift; sourceTree = "<group>"; };
+		F7E8F7352FF8D3390067D623 /* LucidBannerState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LucidBannerState.swift; sourceTree = "<group>"; };
+		F7E8F7362FF8D3390067D623 /* LucidBannerVariantCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LucidBannerVariantCoordinator.swift; sourceTree = "<group>"; };
+		F7E8F7372FF8D3390067D623 /* LucidBannerWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LucidBannerWindow.swift; sourceTree = "<group>"; };
 		F7F8495F2EF44ECE00FAF123 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
@@ -61,7 +65,7 @@
 		F765EE892EF44AC1001FDB8A = {
 			isa = PBXGroup;
 			children = (
-				F7F849572EF44D8000FAF123 /* Sources */,
+				F7E8F7392FF8D3390067D623 /* Sources */,
 				F765EE942EF44AC1001FDB8A /* LucidBannerUIKitDemo */,
 				F7F8495E2EF44ECE00FAF123 /* Frameworks */,
 				F765EE932EF44AC1001FDB8A /* Products */,
@@ -76,23 +80,33 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		F7F849562EF44D8000FAF123 /* LucidBanner */ = {
+		F7E8F7302FF8D3390067D623 /* Extension */ = {
 			isa = PBXGroup;
 			children = (
-				F7F849502EF44D8000FAF123 /* LucidBanner.swift */,
-				F7F849512EF44D8000FAF123 /* LucidBannerMinimizeCoordinator.swift */,
-				F7F849522EF44D8000FAF123 /* LucidBannerStage.swift */,
-				F7F849532EF44D8000FAF123 /* LucidBannerStage+State.swift */,
-				F7F849542EF44D8000FAF123 /* LucidBannerState.swift */,
-				F7F849552EF44D8000FAF123 /* LucidBannerWindow.swift */,
+				F7E8F72F2FF8D3390067D623 /* String.swift */,
+			);
+			path = Extension;
+			sourceTree = "<group>";
+		};
+		F7E8F7382FF8D3390067D623 /* LucidBanner */ = {
+			isa = PBXGroup;
+			children = (
+				F7E8F7302FF8D3390067D623 /* Extension */,
+				F7E8F7312FF8D3390067D623 /* LucidBanner.swift */,
+				F7E8F7322FF8D3390067D623 /* LucidBannerPayload.swift */,
+				F7E8F7332FF8D3390067D623 /* LucidBannerRegistry.swift */,
+				F7E8F7342FF8D3390067D623 /* LucidBannerStage.swift */,
+				F7E8F7352FF8D3390067D623 /* LucidBannerState.swift */,
+				F7E8F7362FF8D3390067D623 /* LucidBannerVariantCoordinator.swift */,
+				F7E8F7372FF8D3390067D623 /* LucidBannerWindow.swift */,
 			);
 			path = LucidBanner;
 			sourceTree = "<group>";
 		};
-		F7F849572EF44D8000FAF123 /* Sources */ = {
+		F7E8F7392FF8D3390067D623 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
-				F7F849562EF44D8000FAF123 /* LucidBanner */,
+				F7E8F7382FF8D3390067D623 /* LucidBanner */,
 			);
 			name = Sources;
 			path = ../Sources;
@@ -180,12 +194,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F7F849582EF44D8000FAF123 /* LucidBannerStage.swift in Sources */,
-				F7F849592EF44D8000FAF123 /* LucidBannerMinimizeCoordinator.swift in Sources */,
-				F7F8495A2EF44D8000FAF123 /* LucidBanner.swift in Sources */,
-				F7F8495B2EF44D8000FAF123 /* LucidBannerStage+State.swift in Sources */,
-				F7F8495C2EF44D8000FAF123 /* LucidBannerState.swift in Sources */,
-				F7F8495D2EF44D8000FAF123 /* LucidBannerWindow.swift in Sources */,
+				F7E8F73A2FF8D3390067D623 /* LucidBannerPayload.swift in Sources */,
+				F7E8F73B2FF8D3390067D623 /* LucidBannerRegistry.swift in Sources */,
+				F7E8F73C2FF8D3390067D623 /* LucidBannerState.swift in Sources */,
+				F7E8F73D2FF8D3390067D623 /* LucidBannerStage.swift in Sources */,
+				F7E8F73E2FF8D3390067D623 /* LucidBanner.swift in Sources */,
+				F7E8F73F2FF8D3390067D623 /* LucidBannerWindow.swift in Sources */,
+				F7E8F7402FF8D3390067D623 /* LucidBannerVariantCoordinator.swift in Sources */,
+				F7E8F7412FF8D3390067D623 /* String.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

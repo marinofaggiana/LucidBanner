@@ -9,38 +9,40 @@ import SwiftUI
 func showUploadBanner(scene: UIWindowScene?,
                       stage: LucidBanner.Stage? = nil,
                       onButtonTap: (() -> Void)? = nil) -> Int? {
-    let token = LucidBanner.shared.show(
-        scene: scene,
-        blocksTouches: false,
-        draggable: true,
+    guard let scene else { return nil }
+
+    let banner = LucidBannerRegistry.shared.banner(for: scene)
+    let payload = LucidBannerPayload(
+        title: "Uploading…",
+        subtitle: "name.rtf",
+        footnote: "(tap to minimize)",
+        systemImage: "arrowshape.up.circle",
+        progress: 0,
         stage: stage,
-        policy: .drop
-    ) { state in
-        UploadBanner(state: state,
-                     allowMinimizeOnTap: true,
-                     onButtonTap: onButtonTap)
-    }
+        vPosition: .top
+    )
 
-    LucidBannerMinimizeCoordinator.shared.register(token: token) { context in
-        let bounds = context.bounds
-        var height: CGFloat = 0
-        let over: CGFloat = 30
-        if let scene,
-           let window = scene.windows.first {
-            let regularLayout = (window.rootViewController?.traitCollection.horizontalSizeClass == .regular)
-            let iPad = UIDevice.current.userInterfaceIdiom == .pad
-            if iPad, regularLayout {
-                height = over
-            } else {
-                height = context.safeAreaInsets.bottom + over
-            }
-        }
-
-        return CGPoint(
-            x: bounds.midX,
-            y: bounds.maxY - height
+    let coordinator = LucidBannerVariantCoordinator(banner: banner)
+    let token = banner.show(payload: payload, policy: .drop) { state in
+        UploadBanner(
+            state: state,
+            coordinator: coordinator,
+            allowMinimizeOnTap: true,
+            onButtonTap: onButtonTap
         )
     }
+
+    coordinator.register(token: token, resolveVariant: { context in
+        let bounds = context.bounds
+        let over: CGFloat = 30
+        let regularLayout = context.window.rootViewController?.traitCollection.horizontalSizeClass == .regular
+        let iPad = UIDevice.current.userInterfaceIdiom == .pad
+        let height: CGFloat = iPad && regularLayout ? over : context.safeAreaInsets.bottom + over
+
+        return LucidBannerVariantCoordinator.VariantResolution(
+            targetPoint: CGPoint(x: bounds.midX, y: bounds.maxY - height)
+        )
+    })
 
     return token
 }
@@ -49,36 +51,39 @@ func showUploadBanner(scene: UIWindowScene?,
 
 struct UploadBanner: View {
     @ObservedObject var state: LucidBannerState
+    let coordinator: LucidBannerVariantCoordinator?
     @State var trigger = true
     let onButtonTap: (() -> Void)?
     let allowMinimizeOnTap: Bool
     let textColor = Color(.label)
 
     init(state: LucidBannerState,
+         coordinator: LucidBannerVariantCoordinator? = nil,
          allowMinimizeOnTap: Bool = false,
          onButtonTap: (() -> Void)? = nil) {
         self.state = state
+        self.coordinator = coordinator
         self.allowMinimizeOnTap = allowMinimizeOnTap
         self.onButtonTap = onButtonTap
     }
 
     var body: some View {
-        let showTitle = !(state.title?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
-        let showSubtitle = !(state.subtitle?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
-        let showFootnote = !(state.footnote?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+        let showTitle = !(state.payload.title?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+        let showSubtitle = !(state.payload.subtitle?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+        let showFootnote = !(state.payload.footnote?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
 
-        let isSuccess = (state.typedStage == .success)
-        let isError = (state.typedStage == .error)
-        let isButton = (state.typedStage == .button)
+        let isSuccess = (state.payload.stage == .success)
+        let isError = (state.payload.stage == .error)
+        let isButton = (state.payload.stage == .button)
 
         containerView(state: state) {
-            if state.isMinimized {
+            if state.variant == .alternate {
                 HStack(spacing: 5) {
-                    Image(systemName: state.systemImage ?? "arrow.up.circle")
+                    Image(systemName: state.payload.systemImage ?? "arrow.up.circle")
                         .font(.body.weight(.medium))
                         .frame(width: 20, height: 20)
 
-                    if let p = state.progress {
+                    if let p = state.payload.progress {
                         Text("\(Int(p * 100))%")
                             .font(.caption2.monospacedDigit())
                             .frame(height: 20)
@@ -122,7 +127,7 @@ struct UploadBanner: View {
                                 .truncationMode(.tail)
                                 .minimumScaleFactor(0.9)
                                 .foregroundStyle(textColor)
-                            if showSubtitle, let subtitle = state.subtitle {
+                            if showSubtitle, let subtitle = state.payload.subtitle {
                                 Text(subtitle)
                                     .font(.subheadline)
                                     .multilineTextAlignment(.leading)
@@ -138,15 +143,15 @@ struct UploadBanner: View {
             } else {
                 VStack(spacing: 15) {
                     HStack(alignment: .center, spacing: 10) {
-                        if let systemImage = state.systemImage {
+                        if let systemImage = state.payload.systemImage {
                             Image(systemName: systemImage)
-                                .applyBannerAnimation(state.imageAnimation)
+                                .applyBannerAnimation(state.payload.imageAnimation)
                                 .font(.system(size: 30, weight: .regular))
                                 .foregroundStyle(Color(uiColor: .blue))
                         }
 
                         VStack(alignment: .leading, spacing: 7) {
-                            if showTitle, let title = state.title {
+                            if showTitle, let title = state.payload.title {
                                 Text(title)
                                     .font(.subheadline.weight(.bold))
                                     .multilineTextAlignment(.leading)
@@ -154,14 +159,14 @@ struct UploadBanner: View {
                                     .minimumScaleFactor(0.9)
                                     .foregroundStyle(textColor)
                             }
-                            if showSubtitle, let subtitle = state.subtitle {
+                            if showSubtitle, let subtitle = state.payload.subtitle {
                                 Text(subtitle)
                                     .font(.subheadline)
                                     .multilineTextAlignment(.leading)
                                     .truncationMode(.tail)
                                     .foregroundStyle(textColor)
                             }
-                            if showFootnote, let footnote = state.footnote {
+                            if showFootnote, let footnote = state.payload.footnote {
                                 Text(footnote)
                                     .font(.caption)
                                     .multilineTextAlignment(.leading)
@@ -171,10 +176,10 @@ struct UploadBanner: View {
                         }
                     }
 
-                    ProgressView(value: state.progress ?? 0)
+                    ProgressView(value: state.payload.progress ?? 0)
                         .tint(.accentColor)
-                        .opacity(state.progress == nil ? 0 : 1)
-                        .animation(.easeInOut(duration: 0.2), value: state.progress == nil)
+                        .opacity(state.payload.progress == nil ? 0 : 1)
+                        .animation(.easeInOut(duration: 0.2), value: state.payload.progress == nil)
 
                     if isButton {
                         VStack {
@@ -204,10 +209,10 @@ struct UploadBanner: View {
 
     @ViewBuilder
     func containerView<Content: View>(state: LucidBannerState, @ViewBuilder _ content: () -> Content) -> some View {
-        let isError = (state.typedStage == .error)
-        let isSuccess = (state.typedStage == .success)
-        let isMinimized = state.isMinimized
-        let cornerRadius: CGFloat = state.isMinimized ? 15 : 25
+        let isError = (state.payload.stage == .error)
+        let isSuccess = (state.payload.stage == .success)
+        let isMinimized = state.variant == .alternate
+        let cornerRadius: CGFloat = state.variant == .alternate ? 15 : 25
         let backgroundColor = Color(.systemBackground).opacity(0.65)
         let errorColor = Color.red.opacity(0.75)
 
@@ -215,7 +220,7 @@ struct UploadBanner: View {
             .contentShape(Rectangle())
             .onTapGesture {
                 guard allowMinimizeOnTap else { return }
-                LucidBannerMinimizeCoordinator.shared.handleTap(state)
+                coordinator?.handleTap(state)
             }
 
         if isMinimized || isSuccess {
@@ -287,10 +292,10 @@ struct UploadBanner: View {
 public extension View {
     @ViewBuilder
     func applyBannerAnimation(_ style: LucidBanner.LucidBannerAnimationStyle) -> some View {
-        switch style {
+       switch style {
 
         // ---- iOS 18+ effects ----
-        case .rotate, .pulse, .pulsebyLayer, .breathe, .bounce, .wiggle, .scale, .scaleUpbyLayer:
+        case .rotate, .pulse, .pulsebyLayer, .breathe, .bounce, .wiggle, .scale, .scaleUpbyLayer, .variableColor:
             if #available(iOS 18, *) {
                 switch style {
                 case .rotate:
@@ -309,7 +314,7 @@ public extension View {
                     self.symbolEffect(.scale, options: .repeat(.continuous))
                 case .scaleUpbyLayer:
                     self.symbolEffect(.scale.up.byLayer, options: .repeat(.continuous))
-                case .variableColor
+                case .variableColor:
                     self.symbolEffect(.variableColor, options: .repeat(.continuous))
                 default:
                     self
