@@ -33,9 +33,23 @@ Author: **Marino Faggiana** • License: **MIT**
 - Swift 6.0+
 - SwiftUI and UIKit
 
-## Integration
+## Installation
 
-Add the LucidBanner sources to your project or package target. The provided sources do not include a `Package.swift` manifest, so this repository currently does not expose a ready-to-copy Swift Package Manager URL or versioned package declaration.
+LucidBanner includes a Swift Package manifest.
+
+### Swift Package Manager
+
+In Xcode, choose **File → Add Package Dependencies…**, enter the repository URL, select the desired version or branch, then add **LucidBanner** to the target.
+
+You can also declare it from another package:
+
+```swift
+dependencies: [
+    .package(url: "<repository-url>", branch: "main")
+]
+```
+
+The library product is named `LucidBanner`.
 
 ## Quick start
 
@@ -113,6 +127,8 @@ struct ContentView: View {
 
 The content closure receives the shared `LucidBannerState`. Read `state.payload` to render the active configuration. Keep presentation and dismissal lifecycle in `LucidBanner`; content-level interactions may deliberately call an external coordinator or callback, such as `LucidBannerVariantCoordinator.handleTap(_:)`.
 
+`LucidBannerState` also publishes `variant`, which is `.standard` or `.alternate`. The variant coordinator changes it while preserving the same state object and token.
+
 ```swift
 struct UploadBannerView: View {
     @ObservedObject var state: LucidBannerState
@@ -164,6 +180,16 @@ struct UploadBannerView: View {
 ## Presentation policies
 
 Use the policy parameter of `show(payload:policy:onTap:content:)` when another banner is visible or transitioning.
+
+The optional `onTap` closure passed to `show` receives the active token and the current `LucidBanner.Stage`:
+
+```swift
+let token = banner.show(payload: payload, policy: .enqueue, onTap: { token, stage in
+    print("Tapped banner \(token ?? -1), stage: \(stage?.rawValue ?? "none")")
+}) { state in
+    UploadBannerView(state: state)
+}
+```
 
 | Policy | Behavior |
 | --- | --- |
@@ -217,6 +243,14 @@ When `blocksTouches` is `true`, LucidBanner disables both dragging and swipe-to-
 
 Vertical position is `.top`, `.center`, or `.bottom`. Presentation style is `.automatic`, `.slide`, `.scale`, or `.fade`.
 
+### Icon animation styles
+
+`LucidBannerAnimationStyle` is interpreted by your SwiftUI content. The available values are `.none`, `.rotate`, `.pulse`, `.pulsebyLayer`, `.drawOn`, `.breathe`, `.bounce`, `.wiggle`, `.scale`, `.scaleUpbyLayer`, and `.variableColor`.
+
+### Semantic stages
+
+`LucidBanner.Stage` is an optional semantic value for application-specific rendering or behavior. The built-in values are `.success`, `.error`, `.info`, `.warning`, `.button`, and `.placeholder`; use `.custom("value")` for your own stage. `rawValue` converts a stage to a string and `init(rawValue:)` restores known values case-insensitively, otherwise creating `.custom`.
+
 ## Updating an active banner
 
 Apply a partial patch with `LucidBannerPayload.Update`. Omitted values are unchanged. Progress is clamped to the `0...1` range; pass `Double.nan` to explicitly remove it.
@@ -245,6 +279,8 @@ guard banner.isAlive(token) else { return }
 banner.update(payload: .init(progress: 0.9), for: token)
 ```
 
+`Update` can also change `imageAnimation`, colors, `draggable`, `swipeToDismiss`, `blocksTouches`, `presentationStyle`, vertical position and margin, horizontal layout, safe-area behavior, and `autoDismissAfter`. `UpdateValue` is used only for progress: `.unchanged`, `.value(Double)`, or `.clear`.
+
 ## Dismissal and queue control
 
 ```swift
@@ -257,6 +293,8 @@ await banner.dismissAsync(after: 2)
 // Immediately removes the currently visible banner.
 banner.dismissAll(animated: false)
 ```
+
+`dismiss()` advances to the next queued request after the current banner finishes dismissing. In the current implementation, `dismissAll(animated:)` removes the visible banner but does **not** clear queued requests; do not use it as a queue-reset API.
 
 To discard queued requests, present a replacement banner with `.replace`. Do not use `LucidBannerRegistry.remove(for:)` as a queue-reset mechanism while a banner may still be visible: it only removes the registry reference and does not dismiss the existing instance.
 
@@ -280,7 +318,7 @@ LucidBanner dismisses the visible banner when the application enters the backgro
 ```swift
 let coordinator = LucidBannerVariantCoordinator(banner: banner)
 
-coordinator.register(token: token) { context in
+coordinator.register(token: token, resolveVariant: { context in
     .init(
         targetPoint: CGPoint(
             x: context.bounds.midX,
@@ -291,13 +329,38 @@ coordinator.register(token: token) { context in
             horizontalLayout: .centered(width: 300)
         )
     )
-}
+})
 
 // Invoke this from a deliberate content-level interaction, such as its tap action.
 coordinator.handleTap(state)
 ```
 
 Call `notifyLayoutChanged(animated:)` when your layout changes and the alternate position must be recalculated.
+
+## Runtime controls and inspection
+
+```swift
+// The UIWindowScene owned by this banner instance.
+let scene = banner.windowScene
+
+// Reposition the active banner in window coordinates.
+banner.move(toX: 180, y: 96, for: token, animated: true)
+banner.resetPosition(for: token, animated: true)
+
+// Inspect the active banner.
+let frame = banner.currentFrameInWindow(for: token)
+let hostView = banner.currentHostView(for: token)
+let state = banner.currentState(for: token)
+
+// Adjust live interaction and layout behavior.
+banner.setDraggingEnabled(false, for: token)
+banner.setRespectsSafeArea(true, for: token, animated: true)
+banner.requestRelayout(animated: true)
+```
+
+`move(toX:y:for:animated:)`, `resetPosition(for:animated:)`, `currentFrameInWindow(for:)`, `currentHostView(for:)`, and `setDraggingEnabled(_:for:)` use the active banner when their token is omitted. `currentState(for:)` returns `nil` for a stale or non-active token.
+
+`setDraggingEnabled(_:for:)` updates the installed pan gesture for the visible banner; it does not change `state.payload.draggable`.
 
 ## Utility extensions
 
@@ -307,6 +370,31 @@ let onlyIfNonEmpty = rawTitle.nilIfEmpty
 ```
 
 `trimmedNilIfEmpty` removes leading/trailing whitespace and returns `nil` for an empty result. `nilIfEmpty` only checks direct emptiness.
+
+## Positioning, layout, and runtime inspection
+
+The active banner can be repositioned or inspected without rebuilding its SwiftUI content:
+
+```swift
+// The scene that owns this banner instance.
+let scene = banner.windowScene
+
+// Move the active banner in window coordinates.
+banner.move(toX: 180, y: 96, for: token, animated: true)
+banner.resetPosition(for: token, animated: true)
+
+// Inspect the currently hosted banner.
+let frame = banner.currentFrameInWindow(for: token)
+let hostView = banner.currentHostView(for: token)
+let state = banner.currentState(for: token)
+
+// Change live interaction/layout behavior.
+banner.setDraggingEnabled(false, for: token)
+banner.setRespectsSafeArea(true, for: token, animated: true)
+banner.requestRelayout(animated: true)
+```
+
+`move(toX:y:for:animated:)` and `resetPosition(for:animated:)` operate on the visible banner. The optional token defaults to the active banner. `currentFrameInWindow(for:)`, `currentHostView(for:)`, and `currentState(for:)` return `nil` when the requested token is no longer active.
 
 ## License
 
