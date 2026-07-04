@@ -52,6 +52,10 @@ struct MinimalBannerView: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(.regularMaterial)
         )
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(state.payload.backgroundColor.opacity(0.18))
+        }
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .strokeBorder(.white.opacity(0.20), lineWidth: 0.5)

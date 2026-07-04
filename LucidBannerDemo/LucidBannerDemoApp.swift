@@ -10,14 +10,17 @@
 //  with optional touch-passthrough, swipe-to-dismiss and auto-dismiss.
 //
 //  Architecture:
-//  - `LucidBanner.shared` manages lifecycle, queuing, scheduling and dismissal.
-//  - `LucidBannerState` exposes observable UI data to SwiftUI.
-//  - A lightweight UIWindow subclass hosts the SwiftUI banner above all scenes.
-//  - Only a single state object is reused; each banner is identified by a token.
+//  - `LucidBannerRegistry` owns one `LucidBanner` instance per `UIWindowScene`.
+//  - Each `LucidBanner` manages presentation, queueing, scheduling and dismissal
+//    for its scene.
+//  - `LucidBannerState` exposes observable UI data to the SwiftUI banner content.
+//  - A lightweight `UIWindow` subclass hosts the SwiftUI banner above the scene.
+//  - Each presentation request is identified by a token.
 //
 //  Notes:
-//  Designed to be lightweight and non-intrusive. No View contains presentation
-//  logic; all coordination is handled by the manager layer.
+//  Designed to be lightweight and non-intrusive. SwiftUI content renders
+//  `LucidBannerState`; scene lifecycle and presentation coordination remain
+//  in the banner and registry layers.
 //
 
 import SwiftUI
