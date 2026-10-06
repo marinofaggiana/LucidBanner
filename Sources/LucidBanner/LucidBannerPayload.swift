@@ -234,6 +234,8 @@ public extension LucidBannerPayload {
         public var imageAnimation: LucidBanner.LucidBannerAnimationStyle?
         public var progress: UpdateValue<Double> = .unchanged
         public var stage: LucidBanner.Stage?
+        private var clearsSystemImage = false
+        private var clearsStage = false
 
         // Appearance
 
@@ -344,18 +346,19 @@ public extension LucidBannerPayload.Update {
     /// Used to revert temporary overrides (e.g. variant transitions).
     init(from payload: LucidBannerPayload) {
         self.init(
-            title: payload.title,
-            subtitle: payload.subtitle,
-            footnote: payload.footnote,
+            title: payload.title ?? "",
+            subtitle: payload.subtitle ?? "",
+            footnote: payload.footnote ?? "",
             systemImage: payload.systemImage,
             imageAnimation: payload.imageAnimation,
-            progress: payload.progress,
+            progress: payload.progress ?? .nan,
             stage: payload.stage,
 
             backgroundColor: payload.backgroundColor,
             textColor: payload.textColor,
             imageColor: payload.imageColor,
 
+            presentationStyle: payload.presentationStyle,
             vPosition: payload.vPosition,
             verticalMargin: payload.verticalMargin,
             horizontalLayout: payload.horizontalLayout,
@@ -366,6 +369,8 @@ public extension LucidBannerPayload.Update {
             blocksTouches: payload.blocksTouches,
             draggable: payload.draggable
         )
+        clearsSystemImage = payload.systemImage == nil
+        clearsStage = payload.stage == nil
     }
 
     /// Applies this update patch to an existing `LucidBannerPayload`.
@@ -417,6 +422,12 @@ public extension LucidBannerPayload.Update {
             }
         }
 
+        if clearsSystemImage, systemImage == nil, payload.systemImage != nil {
+            payload.systemImage = nil
+            result.needsRelayout = true
+            result.contentChanged = true
+        }
+
         if let imageAnimation {
             if payload.imageAnimation != imageAnimation {
                 payload.imageAnimation = imageAnimation
@@ -456,6 +467,12 @@ public extension LucidBannerPayload.Update {
                 result.needsRelayout = true
                 result.stageChanged = true
             }
+        }
+
+        if clearsStage, stage == nil, payload.stage != nil {
+            payload.stage = nil
+            result.needsRelayout = true
+            result.stageChanged = true
         }
 
         // Appearance

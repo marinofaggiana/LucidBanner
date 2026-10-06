@@ -58,10 +58,7 @@ public final class LucidBannerVariantCoordinator {
         public let targetPoint: CGPoint?
         public let payloadUpdate: LucidBannerPayload.Update?
 
-        public init(
-            targetPoint: CGPoint? = nil,
-            payloadUpdate: LucidBannerPayload.Update? = nil
-        ) {
+        public init(targetPoint: CGPoint? = nil, payloadUpdate: LucidBannerPayload.Update? = nil) {
             self.targetPoint = targetPoint
             self.payloadUpdate = payloadUpdate
         }
