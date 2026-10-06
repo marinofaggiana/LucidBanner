@@ -197,6 +197,11 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// Indicates an active presentation animation.
     private var isAnimatingIn = false
 
+    /// Invalidates callbacks belonging to an earlier presentation.
+    private var presentationID = UUID()
+    private var dismissAfterPresentation = false
+    private var layoutTask: Task<Void, Never>?
+
     /// Indicates an active dismissal animation.
     private var isDismissing = false
 
@@ -221,6 +226,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// These constraints are derived from `horizontalLayout`
     /// and are replaced wholesale on each layout pass.
     private var horizontalConstraints: [NSLayoutConstraint] = []
+    private var verticalConstraints: [NSLayoutConstraint] = []
 
     /// Minimum allowed banner height.
     private let minHeight: CGFloat = 44
@@ -357,7 +363,8 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         payload: LucidBannerPayload,
         policy: ShowPolicy = .enqueue,
         onTap: ((_ token: Int?, _ stage: LucidBanner.Stage?) -> Void)? = nil,
-        @ViewBuilder content: @escaping (LucidBannerState) -> Content) -> Int {
+        @ViewBuilder content: @escaping (LucidBannerState) -> Content
+    ) -> Int {
 
         // Generate a new token up front for deterministic tracking.
         generation &+= 1
@@ -539,6 +546,13 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             }
         }
 
+        if oldPayload.vPosition != newPayload.vPosition ||
+            oldPayload.verticalMargin != newPayload.verticalMargin {
+            if let hostView = hostController?.view, let root = rootView {
+                applyVerticalPositionConstraints(hostView: hostView, root: root)
+            }
+        }
+
         // Layout Pass
 
         if mergeResult.needsRelayout {
@@ -666,7 +680,12 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// This is useful after external SwiftUI changes that affect
     /// intrinsic content size.
     public func requestRelayout(animated: Bool) {
-        remeasure(animated: animated)
+        guard window != nil else { return }
+        if isAnimatingIn || isDismissing {
+            pendingRelayout = true
+        } else {
+            remeasure(animated: animated)
+        }
     }
 
     /// Returns whether the provided token identifies the currently
@@ -698,9 +717,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         dismissTimer = nil
 
         if isPresenting {
-            pendingDismissCompletions.append { [weak self] in
-                self?.dismiss()
-            }
+            dismissAfterPresentation = true
             return
         }
 
@@ -709,21 +726,14 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         }
 
         guard let window, let hostView = hostController?.view else {
-            hostController = nil
-            self.window?.isHidden = true
-            self.window = nil
-            self.rootView = nil
-            self.activeToken = nil
-            heightConstraint = nil
-            isPresenting = false
-            isDismissing = false
-
-            let completions = pendingDismissCompletions
-            pendingDismissCompletions.removeAll()
+            tearDownPresentation()
+            let completions = takeDismissCompletions()
             completions.forEach { $0() }
             return
         }
 
+        let presentationID = self.presentationID
+        dismissAfterPresentation = false
         isPresenting = false
         isDismissing = true
 
@@ -780,32 +790,10 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             window.layoutIfNeeded()
 
         } completion: { _ in
-            self.horizontalConstraints.forEach { $0.isActive = false }
-            self.horizontalConstraints.removeAll()
-
-            if let constraint = self.heightConstraint {
-                constraint.isActive = false
-                self.heightConstraint = nil
-            }
-
-            self.hostController = nil
-            window.isHidden = true
-            self.window = nil
-
-            self.isDismissing = false
-            self.panGestureRef = nil
-            self.scrimView = nil
-
-            self.blocksTouches = false
-            self.swipeToDismiss = false
-            self.draggable = false
-
-            self.activeToken = nil
-
+            guard self.presentationID == presentationID, self.window === window else { return }
+            self.tearDownPresentation()
+            let completions = self.takeDismissCompletions()
             self.dequeueAndStartIfNeeded()
-
-            let completions = self.pendingDismissCompletions
-            self.pendingDismissCompletions.removeAll()
             completions.forEach { $0() }
         }
     }
@@ -820,23 +808,36 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// Dismisses the active banner after a delay.
     ///
     /// If another banner becomes active before the delay expires,
-    /// the dismissal is ignored.
+    /// the dismissal is ignored. Completion also runs when the delay is cancelled.
     public func dismiss(after seconds: TimeInterval, completion: (() -> Void)? = nil) {
         dismissTimer?.cancel()
 
-        guard seconds > 0 else {
+        dismissTimer = nil
+        guard seconds.isFinite, seconds > 0 else {
             dismiss(completion: completion)
             return
         }
+        guard let tokenAtSchedule = activeToken, window != nil else {
+            completion?()
+            return
+        }
+        let presentationID = self.presentationID
 
-        let tokenAtSchedule = activeToken
-
-        dismissTimer = Task {
-            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
-            await MainActor.run {
-                guard self.activeToken == tokenAtSchedule else { return }
-                self.dismiss(completion: completion)
+        dismissTimer = Task { [weak self] in
+            do {
+                try await Task.sleep(for: .seconds(seconds))
+                try Task.checkCancellation()
+            } catch {
+                completion?()
+                return
             }
+            guard let self, self.activeToken == tokenAtSchedule,
+                  self.presentationID == presentationID else {
+                completion?()
+                return
+            }
+            self.dismissTimer = nil
+            self.dismiss(completion: completion)
         }
     }
 
@@ -851,39 +852,86 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     ///
     /// This is a hard reset of the banner system.
     public func dismissAll(animated: Bool = true, completion: (() -> Void)? = nil) {
+        queue.removeAll()
+        dismissTimer?.cancel()
+        dismissTimer = nil
+        layoutTask?.cancel()
+        layoutTask = nil
+        presentationID = UUID()
+        let resetID = presentationID
+        dismissAfterPresentation = false
+        isAnimatingIn = false
+        isPresenting = false
+        pendingRelayout = false
+
+        if let completion {
+            pendingDismissCompletions.append(completion)
+        }
         guard let window else {
-            activeToken = nil
-            completion?()
+            tearDownPresentation()
+            let completions = takeDismissCompletions()
+            completions.forEach { $0() }
             return
         }
 
-        let hide = { window.alpha = 0 }
+        isDismissing = true
+        window.onLayoutChange = nil
+        window.layer.removeAllAnimations()
+        hostController?.view.layer.removeAllAnimations()
+        hostController?.view.isUserInteractionEnabled = false
+        panGestureRef?.isEnabled = false
 
         let finalize = {
-            self.activeToken = nil
-            window.isHidden = true
-            window.rootViewController = nil
-            self.horizontalConstraints.forEach { $0.isActive = false }
-            self.horizontalConstraints.removeAll()
-            if let constraint = self.heightConstraint {
-                constraint.isActive = false
-                self.heightConstraint = nil
-            }
-            self.window = nil
-            self.isPresenting = false
-            self.isDismissing = false
-            self.blocksTouches = false
-            self.swipeToDismiss = false
-            self.draggable = false
-            completion?()
+            guard self.presentationID == resetID, self.window === window else { return }
+            self.tearDownPresentation()
+            let completions = self.takeDismissCompletions()
+            self.dequeueAndStartIfNeeded()
+            completions.forEach { $0() }
         }
 
         if animated {
-            UIView.animate(withDuration: 0.20, animations: hide) { _ in finalize() }
+            UIView.animate(withDuration: 0.20, animations: { window.alpha = 0 }) { _ in finalize() }
         } else {
-            hide()
             finalize()
         }
+    }
+
+    private func takeDismissCompletions() -> [() -> Void] {
+        let completions = pendingDismissCompletions
+        pendingDismissCompletions.removeAll()
+        return completions
+    }
+
+    private func tearDownPresentation() {
+        presentationID = UUID()
+        dismissTimer?.cancel()
+        dismissTimer = nil
+        layoutTask?.cancel()
+        layoutTask = nil
+        window?.onLayoutChange = nil
+        window?.isHidden = true
+        window?.rootViewController = nil
+        NSLayoutConstraint.deactivate(horizontalConstraints + verticalConstraints)
+        horizontalConstraints.removeAll()
+        verticalConstraints.removeAll()
+        heightConstraint?.isActive = false
+        heightConstraint = nil
+        hostController = nil
+        window = nil
+        rootView = nil
+        scrimView = nil
+        panGestureRef = nil
+        contentView = nil
+        onTap = nil
+        activeToken = nil
+        isAnimatingIn = false
+        isPresenting = false
+        isDismissing = false
+        dismissAfterPresentation = false
+        pendingRelayout = false
+        blocksTouches = false
+        swipeToDismiss = false
+        draggable = false
     }
 
     public func setRespectsSafeArea(_ value: Bool, for token: Int? = nil, animated: Bool = true) {
@@ -892,12 +940,13 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
               value != respectsSafeArea else { return }
 
         respectsSafeArea = value
+        state.payload.respectsSafeArea = value
 
         if let hostView = hostController?.view,
            let root = rootView {
             applyVerticalPositionConstraints(hostView: hostView, root: root)
             applyHorizontalLayoutConstraints(hostView: hostView, root: root)
-            remeasure(animated: animated)
+            requestRelayout(animated: animated)
         }
     }
 
@@ -915,7 +964,9 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// - Creates window/UI synchronously on the MainActor.
     /// - Auto-dismiss is token-safe and will not affect future banners.
     private func startShow(with viewUI: @escaping (LucidBannerState) -> AnyView) {
+        presentationID = UUID()
         isAnimatingIn = true
+        dismissAfterPresentation = false
         pendingRelayout = false
         contentView = viewUI
 
@@ -948,6 +999,10 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// Dequeues and presents the next banner, if possible.
     private func dequeueAndStartIfNeeded() {
         guard !isPresenting, !isDismissing, window == nil else { return }
+        guard scene.activationState == .foregroundActive else {
+            queue.removeAll()
+            return
+        }
         guard let next = queue.first else { return }
 
         queue.removeFirst()
@@ -1017,27 +1072,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
         // Layout Constraints
 
-        let guide = root.safeAreaLayoutGuide
-        let useSafeArea = respectsSafeArea
-
-        switch vPosition {
-        case .top:
-            host.view.topAnchor.constraint(
-                equalTo: useSafeArea ? guide.topAnchor : root.topAnchor,
-                constant: verticalMargin
-            ).isActive = true
-
-        case .center:
-            host.view.centerYAnchor.constraint(
-                equalTo: useSafeArea ? guide.centerYAnchor : root.centerYAnchor
-            ).isActive = true
-
-        case .bottom:
-            host.view.bottomAnchor.constraint(
-                equalTo: useSafeArea ? guide.bottomAnchor : root.bottomAnchor,
-                constant: -verticalMargin
-            ).isActive = true
-        }
+        applyVerticalPositionConstraints(hostView: host.view, root: root)
 
         applyHorizontalLayoutConstraints(hostView: host.view, root: root)
 
@@ -1066,8 +1101,22 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
         // Layout Change Observation
 
-        window.onLayoutChange = { [weak self] in
-            self?.pendingRelayout = true
+        var lastBounds: CGRect?
+        var lastInsets: UIEdgeInsets?
+        window.onLayoutChange = { [weak self, weak window] in
+            guard let self, let window, self.window === window else { return }
+            guard lastBounds != window.bounds || lastInsets != window.safeAreaInsets else { return }
+            lastBounds = window.bounds
+            lastInsets = window.safeAreaInsets
+            if self.isAnimatingIn || self.isDismissing {
+                self.pendingRelayout = true
+            } else if self.layoutTask == nil {
+                self.layoutTask = Task { @MainActor [weak self, weak window] in
+                    guard !Task.isCancelled, let self, let window, self.window === window else { return }
+                    self.layoutTask = nil
+                    self.requestRelayout(animated: false)
+                }
+            }
         }
 
         // Presentation Animation
@@ -1123,6 +1172,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             break
         }
 
+        let presentationID = self.presentationID
         UIView.animate(
             withDuration: 0.5,
             delay: 0,
@@ -1133,13 +1183,14 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
             host.view.alpha = 1
             host.view.transform = .identity
         } completion: { [weak self] _ in
-            guard let self else { return }
+            guard let self, self.presentationID == presentationID,
+                  self.window === window else { return }
 
             self.isAnimatingIn = false
             self.isPresenting = false
 
             // If a dismiss was requested while presenting, execute it now.
-            if self.isDismissing == false && self.pendingDismissCompletions.isEmpty == false {
+            if self.dismissAfterPresentation {
                 self.dismiss()
                 return
             }
@@ -1195,33 +1246,24 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
         let guide = root.safeAreaLayoutGuide
         let useSafeArea = respectsSafeArea
 
-        NSLayoutConstraint.deactivate(
-            root.constraints.filter {
-                $0.firstItem as? UIView === hostView &&
-                ($0.firstAttribute == .top ||
-                 $0.firstAttribute == .bottom ||
-                 $0.firstAttribute == .centerY)
-            }
-        )
-
+        NSLayoutConstraint.deactivate(verticalConstraints)
         switch vPosition {
         case .top:
-            hostView.topAnchor.constraint(
+            verticalConstraints = [hostView.topAnchor.constraint(
                 equalTo: useSafeArea ? guide.topAnchor : root.topAnchor,
                 constant: verticalMargin
-            ).isActive = true
-
+            )]
         case .center:
-            hostView.centerYAnchor.constraint(
+            verticalConstraints = [hostView.centerYAnchor.constraint(
                 equalTo: useSafeArea ? guide.centerYAnchor : root.centerYAnchor
-            ).isActive = true
-
+            )]
         case .bottom:
-            hostView.bottomAnchor.constraint(
+            verticalConstraints = [hostView.bottomAnchor.constraint(
                 equalTo: useSafeArea ? guide.bottomAnchor : root.bottomAnchor,
                 constant: -verticalMargin
-            ).isActive = true
+            )]
         }
+        NSLayoutConstraint.activate(verticalConstraints)
     }
 
     // MARK: - Internals: Layout Measurement
@@ -1286,19 +1328,10 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     private func scheduleAutoDismiss() {
         dismissTimer?.cancel()
 
+        dismissTimer = nil
         let seconds = autoDismissAfter
-        guard seconds > 0 else { return }
-
-        let tokenAtSchedule = activeToken
-
-        dismissTimer = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
-            await MainActor.run {
-                guard let self,
-                      self.activeToken == tokenAtSchedule else { return }
-                self.dismiss()
-            }
-        }
+        guard seconds.isFinite, seconds > 0 else { return }
+        dismiss(after: seconds)
     }
 
     // MARK: - Gesture Recognition & Interaction Policy
@@ -1324,10 +1357,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
     /// - Only banner-related gestures are allowed to proceed.
     ///
     /// This method acts as the first line of defense against unintended interaction.
-    public func gestureRecognizer(
-        _ gestureRecognizer: UIGestureRecognizer,
-        shouldReceive touch: UITouch
-    ) -> Bool {
+    public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
         guard let hostView = hostController?.view else { return true }
 
         let location = touch.location(in: hostView)
@@ -1349,9 +1379,7 @@ public final class LucidBanner: NSObject, UIGestureRecognizerDelegate {
 
     /// Determines whether a gesture may begin based on
     /// interaction state, timing, and banner position.
-    public func gestureRecognizerShouldBegin(
-        _ gestureRecognizer: UIGestureRecognizer
-    ) -> Bool {
+    public func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
 
         // Prevent interaction immediately after presentation animation.
         if CACurrentMediaTime() < interactionUnlockTime {

@@ -6,9 +6,11 @@ import SwiftUI
 //import LucidBanner
 
 @MainActor
-func showUploadBanner(scene: UIWindowScene?,
-                      stage: LucidBanner.Stage? = nil,
-                      onButtonTap: (() -> Void)? = nil) -> Int? {
+func showUploadBanner(
+    scene: UIWindowScene?,
+    stage: LucidBanner.Stage? = nil,
+    onButtonTap: (() -> Void)? = nil
+) -> Int? {
     guard let scene else { return nil }
 
     let banner = LucidBannerRegistry.shared.banner(for: scene)
@@ -57,10 +59,12 @@ struct UploadBanner: View {
     let allowMinimizeOnTap: Bool
     let textColor = Color(.label)
 
-    init(state: LucidBannerState,
-         coordinator: LucidBannerVariantCoordinator? = nil,
-         allowMinimizeOnTap: Bool = false,
-         onButtonTap: (() -> Void)? = nil) {
+    init(
+        state: LucidBannerState,
+        coordinator: LucidBannerVariantCoordinator? = nil,
+        allowMinimizeOnTap: Bool = false,
+        onButtonTap: (() -> Void)? = nil
+    ) {
         self.state = state
         self.coordinator = coordinator
         self.allowMinimizeOnTap = allowMinimizeOnTap
@@ -208,7 +212,10 @@ struct UploadBanner: View {
     // MARK: - Container
 
     @ViewBuilder
-    func containerView<Content: View>(state: LucidBannerState, @ViewBuilder _ content: () -> Content) -> some View {
+    func containerView<Content: View>(
+        state: LucidBannerState,
+        @ViewBuilder _ content: () -> Content
+    ) -> some View {
         let isError = (state.payload.stage == .error)
         let isSuccess = (state.payload.stage == .success)
         let isMinimized = state.variant == .alternate

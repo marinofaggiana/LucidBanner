@@ -41,7 +41,7 @@ LucidBanner includes a Swift Package manifest.
 
 In Xcode, choose **File → Add Package Dependencies…**, enter the repository URL, select the desired version or branch, then add **LucidBanner** to the target.
 
-You can also declare the current release from another package:
+For example, you can declare a tagged version from another package:
 
 ```swift
 dependencies: [
@@ -49,17 +49,20 @@ dependencies: [
 ]
 ```
 
-The library product is named `LucidBanner`.
+The library product is named `LucidBanner`. This README describes the current source tree; when using a release tag, consult the README at that tag for its API and behavior.
 
 ## Quick start
 
-Obtain the banner associated with the active `UIWindowScene` from `LucidBannerRegistry`. The registry creates one `LucidBanner` instance per scene and keeps its queue isolated from other windows.
+Obtain the banner associated with your interface’s `UIWindowScene` from `LucidBannerRegistry`. The registry creates one `LucidBanner` instance per scene and keeps its queue isolated from other windows. Banner, registry, state, and variant coordinator APIs run on the main actor.
+
+The example below selects the first foreground scene for a single-window app. In a multi-window app, pass the scene belonging to the view or view controller that triggered the request.
 
 ```swift
 import SwiftUI
 import UIKit
 import LucidBanner
 
+@MainActor
 struct ContentView: View {
     @State private var token: Int?
 
@@ -105,8 +108,8 @@ struct ContentView: View {
                 let banner = LucidBannerRegistry.shared.banner(for: activeScene)
                 banner.update(
                     payload: .init(
-                        progress: 0.66,
                         subtitle: "Uploading…",
+                        progress: 0.66,
                         stage: .info
                     ),
                     for: token
@@ -130,6 +133,7 @@ The content closure receives the shared `LucidBannerState`. Read `state.payload`
 `LucidBannerState` also publishes `variant`, which is `.standard` or `.alternate`. The variant coordinator changes it while preserving the same state object and token.
 
 ```swift
+@MainActor
 struct UploadBannerView: View {
     @ObservedObject var state: LucidBannerState
 
@@ -179,7 +183,9 @@ struct UploadBannerView: View {
 
 ## Presentation policies
 
-Use the policy parameter of `show(payload:policy:onTap:content:)` when another banner is visible or transitioning.
+Use the policy parameter of `show(payload:policy:onTap:content:)` when another banner is visible or transitioning. With no active banner, all three policies present immediately.
+
+Presentation requires a foreground-active scene. Calling `show` for an inactive scene clears queued requests, resets the visible banner without animation, and returns a new token without presenting it.
 
 The optional `onTap` closure passed to `show` receives the active token and the current `LucidBanner.Stage`:
 
@@ -245,7 +251,7 @@ Vertical position is `.top`, `.center`, or `.bottom`. Presentation style is `.au
 
 ### Icon animation styles
 
-`LucidBannerAnimationStyle` is interpreted by your SwiftUI content. The available values are `.none`, `.rotate`, `.pulse`, `.pulsebyLayer`, `.drawOn`, `.breathe`, `.bounce`, `.wiggle`, `.scale`, `.scaleUpbyLayer`, and `.variableColor`.
+`LucidBanner.LucidBannerAnimationStyle` is interpreted by your SwiftUI content; the engine does not apply symbol effects automatically. The simple `UploadBannerView` above renders a static symbol. The available values are `.none`, `.rotate`, `.pulse`, `.pulsebyLayer`, `.drawOn`, `.breathe`, `.bounce`, `.wiggle`, `.scale`, `.scaleUpbyLayer`, and `.variableColor`.
 
 ### Semantic stages
 
@@ -272,6 +278,8 @@ banner.update(
 banner.update(payload: .init(progress: .nan), for: token)
 ```
 
+Updates apply only to the active banner. A token returned for a queued request is not alive until that request is presented; updates for queued or stale tokens are ignored.
+
 Use `isAlive(_:)` before performing delayed or asynchronous updates tied to a token:
 
 ```swift
@@ -290,33 +298,44 @@ await banner.dismissAsync()
 banner.dismiss(after: 2)
 await banner.dismissAsync(after: 2)
 
-// Immediately removes the currently visible banner.
+// Immediately removes the visible banner and clears queued requests.
 banner.dismissAll(animated: false)
 ```
 
-`dismiss()` advances to the next queued request after the current banner finishes dismissing. In the current implementation, `dismissAll(animated:)` removes the visible banner but does **not** clear queued requests; do not use it as a queue-reset API.
+`dismiss()` advances to the next queued request after the current banner finishes dismissing. `dismissAll(animated:)` clears queued requests, cancels pending timers, and removes the visible banner. Pending dismissal completions are resolved during cleanup.
 
-To discard queued requests, present a replacement banner with `.replace`. Do not use `LucidBannerRegistry.remove(for:)` as a queue-reset mechanism while a banner may still be visible: it only removes the registry reference and does not dismiss the existing instance.
+`dismiss(after:completion:)` and auto-dismiss share one timer per banner. Scheduling a new delay replaces the previous timer. Changing `autoDismissAfter` to a different positive value starts a new delay; changing it to `0` cancels the timer. Reapplying the same value does not restart the delay.
+
+A delayed dismissal’s completion runs after dismissal, or when its delay is cancelled or its banner is no longer active. `dismissAsync(after:)` therefore also returns when the delay is cancelled; its return alone does not guarantee that the banner was dismissed.
+
+To discard queued requests, call `dismissAll(animated:)` or present a replacement banner with `.replace`. Do not use `LucidBannerRegistry.remove(for:)` as a queue-reset mechanism while a banner may still be visible: it only removes the registry reference and does not dismiss the existing instance.
 
 ## Scene lifecycle
 
-When a scene disconnects, remove its banner instance from the registry:
+When a scene disconnects, reset its banner before removing the instance from the registry. `remove(for:)` only removes the registry reference:
 
 ```swift
 func sceneDidDisconnect(_ scene: UIScene) {
     guard let windowScene = scene as? UIWindowScene else { return }
+    LucidBannerRegistry.shared.banner(for: windowScene).dismissAll(animated: false)
     LucidBannerRegistry.shared.remove(for: windowScene)
 }
 ```
 
-LucidBanner dismisses the visible banner when the application enters the background. Queued requests are retained by the current implementation.
+LucidBanner dismisses the visible banner when the application enters the background. Queued requests and pending timers are cleared as part of the reset.
 
 ## Alternate variants
 
-`LucidBannerVariantCoordinator` manages a standard/alternate visual state for one scene-scoped banner. It does not decide the alternate layout itself: your resolver receives the current window, host view, safe-area insets, state, and token, then returns an optional target point and payload update. Returning to the standard variant reapplies the stored payload through `LucidBannerPayload.Update(from:)`. Since that helper represents absent optional values as `nil` update fields, it cannot restore a previously absent title, subtitle, footnote, system image, or stage after the alternate variant has supplied one; `presentationStyle` is also not included in that restoration helper.
+`LucidBannerVariantCoordinator` manages a standard/alternate visual state for one scene-scoped banner. It does not decide the alternate layout itself: your resolver receives the current window, host view, safe-area insets, state, and token, then returns an optional target point and payload update. Returning to the standard variant reapplies the stored payload through `LucidBannerPayload.Update(from:)`. The restoration helper restores absent optional values as well as presentation style.
 
 ```swift
 let coordinator = LucidBannerVariantCoordinator(banner: banner)
+let token = banner.show(payload: payload) { state in
+    UploadBannerView(state: state)
+        .onTapGesture {
+            coordinator.handleTap(state)
+        }
+}
 
 coordinator.register(token: token, resolveVariant: { context in
     .init(
@@ -330,12 +349,11 @@ coordinator.register(token: token, resolveVariant: { context in
         )
     )
 })
-
-// Invoke this from a deliberate content-level interaction, such as its tap action.
-coordinator.handleTap(state)
 ```
 
-Call `notifyLayoutChanged(animated:)` when your layout changes and the alternate position must be recalculated.
+The content above retains the coordinator through its tap handler. Returning to the standard variant restores the captured payload, including values changed while the alternate variant was active.
+
+The banner engine remeasures content when the window bounds or safe area change. Call `notifyLayoutChanged(animated:)` when the alternate target position also needs to be recalculated; the coordinator additionally listens for device orientation changes.
 
 ## Runtime controls and inspection
 
@@ -360,7 +378,9 @@ banner.requestRelayout(animated: true)
 
 `move(toX:y:for:animated:)`, `resetPosition(for:animated:)`, `currentFrameInWindow(for:)`, `currentHostView(for:)`, and `setDraggingEnabled(_:for:)` use the active banner when their token is omitted. `currentState(for:)` returns `nil` for a stale or non-active token.
 
-`setDraggingEnabled(_:for:)` updates the installed pan gesture for the visible banner; it does not change `state.payload.draggable`.
+`setDraggingEnabled(_:for:)` enables or disables the installed pan gesture, which handles both dragging and swipe-to-dismiss. It only overrides the gesture’s enabled state and does not change the payload. Configure dragging and swipe-to-dismiss through `Update`; subsequent payload updates reapply the effective gesture configuration.
+
+`setRespectsSafeArea(_:for:animated:)` updates both the active layout and `state.payload.respectsSafeArea`.
 
 ## Utility extensions
 
@@ -370,7 +390,6 @@ let onlyIfNonEmpty = rawTitle.nilIfEmpty
 ```
 
 `trimmedNilIfEmpty` removes leading/trailing whitespace and returns `nil` for an empty result. `nilIfEmpty` only checks direct emptiness.
-
 
 ## License
 
